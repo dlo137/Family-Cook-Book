@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git --version)",
+      "Bash(eas --version)",
+      "Bash(expo --version)",
+      "Read(//c/Users/aidaw/Desktop/Code/**)",
+      "Bash(npx create-expo-app:*)",
+      "Bash(npm install:*)",
+      "Bash(winget --version)",
+      "Bash(scoop --version)",
+      "Bash(scoop install:*)",
+      "Bash(npx expo:*)",
+      "Bash(eas init:*)",
+      "Bash(cp /c/Users/aidaw/Desktop/Code/Mobile_App_Starter/context/AuthContext.tsx /c/Users/aidaw/Desktop/Code/2_ShopMyRoom/context/AuthContext.tsx)",
+      "Bash(cp /c/Users/aidaw/Desktop/Code/Mobile_App_Starter/services/IAPService.ts /c/Users/aidaw/Desktop/Code/2_ShopMyRoom/services/IAPService.ts)",
+      "Bash(eas build:*)",
+      "Bash(node:*)",
+      "Bash(npm list:*)"
+    ]
+  }
+}

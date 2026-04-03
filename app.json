@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "2_ShopMyRoom",
-    "slug": "2_ShopMyRoom",
-    "version": "1.0.0",
+    "name": "ShopMyRoom",
+    "slug": "shopmyroom",
+    "scheme": "shopmyroom",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +14,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.watsonsweb.shopmyroom",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "12"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +31,24 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication",
+      "expo-build-properties",
+      [
+        "react-native-iap",
+        {
+          "paymentProvider": "Apple"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4e16f312-fb40-4b46-a848-7b616f16ec2d"
+      }
+    },
+    "owner": "dangelo137"
   }
 }
