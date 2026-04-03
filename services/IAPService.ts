@@ -1,109 +1,152 @@
 /**
- * services/IAPService.ts — In-App Purchase Service (react-native-iap)
+ * services/IAPService.ts — In-App Purchase Service (react-native-iap v14)
  *
  * RELATED FILES:
  *   - components/paywall/PaywallScreen.tsx  → Calls IAPService to fetch & purchase
  *   - app/_layout.tsx                       → Call IAPService.init() once on app start
  *   - constants/iap.ts                      → All product IDs live there, imported here
- *   - lib/supabase.ts                       → Optional: write purchase receipts to DB
  *
- * SETUP:
- *   1. Install: npx expo install react-native-iap
- *   2. Add plugin to app.json plugins array:
- *        ["react-native-iap", { "paymentProvider": "Apple" }]
- *   3. In App Store Connect → your app → Subscriptions:
- *        - Create a Subscription Group
- *        - Add each product ID (must match constants/iap.ts exactly)
- *        - Set pricing & duration
- *        - Add a localization (required before sandbox testing)
- *   4. Add a Sandbox Tester in App Store Connect → Users & Access → Sandbox
- *   5. Run a production or TestFlight build — IAP does NOT work in Expo Go
- *
- * ⚠️ LAUNCH CRASH NOTE:
- *   Call IAPService.init() inside a useEffect in _layout.tsx, not at module load.
- *   initConnection() can throw if called before the native module is ready.
- *   Always wrap in try/catch and call endConnection() on unmount.
- *
- * ⚠️ iOS SANDBOX NOTE:
- *   Sandbox purchases go through instantly with no charge.
- *   Sign out of your real Apple ID on the test device before testing.
- *   Use the Sandbox account created in App Store Connect.
+ * v14 API NOTES:
+ *   - Dynamic import only — never static import react-native-iap at module level
+ *   - fetchProducts({ skus, type: 'subs' }) — not getSubscriptions
+ *   - requestPurchase returns null — result comes through purchaseUpdatedListener
+ *   - p.id — not p.productId
+ *   - Always call initConnection() before registering listeners
+ *   - Always remove listeners and call endConnection() in finally
  */
 
 import { PRODUCT_IDS } from "@/constants/iap";
 import type { Purchase, Subscription } from "react-native-iap";
 
-// ⚠️ react-native-iap accesses native modules at import time, which crashes
-// the dev client before the native bridge is ready. Use require() lazily
-// so the module is only loaded when methods are actually called (production only).
-const getRNIAP = () => require("react-native-iap");
+// ✅ Dynamic import — never static import at module level
+let _iap: any = null;
+async function loadIAP() {
+  if (_iap) return _iap;
+  _iap = await import("react-native-iap");
+  return _iap;
+}
+
+// Debug log — readable in PaywallScreen debug panel
+type LogEntry = { time: string; msg: string };
+const _logs: LogEntry[] = [];
+let _logListener: (() => void) | null = null;
+
+function iapLog(msg: string) {
+  const entry = { time: new Date().toLocaleTimeString(), msg };
+  _logs.push(entry);
+  if (_logs.length > 50) _logs.shift();
+  console.log("[IAPService]", msg);
+  _logListener?.();
+}
+
+export function getIAPLogs() { return [..._logs]; }
+export function setIAPLogListener(cb: (() => void) | null) { _logListener = cb; }
 
 class IAPService {
-  private purchaseUpdateSubscription: any = null;
-  private purchaseErrorSubscription: any = null;
   private isConnected = false;
+  private onPurchaseSuccessCallback: ((purchase: Purchase) => void) | null = null;
 
-  async init(onPurchaseSuccess?: (purchase: Purchase) => void) {
+  /** Set by _layout.tsx — called after every confirmed purchase (e.g. update Supabase profile) */
+  setOnPurchaseSuccess(cb: ((purchase: Purchase) => void) | null) {
+    this.onPurchaseSuccessCallback = cb;
+  }
+
+  /** Call once in _layout.tsx useEffect after app is ready */
+  async init() {
     if (__DEV__) return;
     try {
-      const {
-        initConnection,
-        purchaseUpdatedListener,
-        purchaseErrorListener,
-        finishTransaction,
-      } = getRNIAP();
-
-      await initConnection();
+      iapLog("initConnection() starting...");
+      const iap = await loadIAP();
+      await iap.initConnection();
       this.isConnected = true;
-
-      this.purchaseUpdateSubscription = purchaseUpdatedListener(async (purchase: Purchase) => {
-        const receipt = purchase.transactionReceipt;
-        if (receipt) {
-          await finishTransaction({ purchase, isConsumable: false });
-          onPurchaseSuccess?.(purchase);
-        }
-      });
-
-      this.purchaseErrorSubscription = purchaseErrorListener((error: any) => {
-        console.warn("[IAPService] Purchase error:", error);
-      });
-    } catch (err) {
+      iapLog("initConnection() success");
+    } catch (err: any) {
+      iapLog(`initConnection() failed: ${err?.message}`);
       console.warn("[IAPService] initConnection failed:", err);
     }
   }
 
+  /** Fetch live subscription products from App Store */
   async getProducts(): Promise<Subscription[]> {
     if (__DEV__) return [];
     try {
-      const { getSubscriptions } = getRNIAP();
-      return await getSubscriptions({ skus: PRODUCT_IDS });
-    } catch (err) {
+      iapLog(`fetchProducts() skus: ${PRODUCT_IDS.join(", ")}`);
+      const iap = await loadIAP();
+      const products = await iap.fetchProducts({ skus: PRODUCT_IDS, type: "subs" });
+      iapLog(`fetchProducts() returned ${products.length} product(s): ${products.map((p: any) => p.id).join(", ") || "none"}`);
+      return products;
+    } catch (err: any) {
+      iapLog(`fetchProducts() failed: ${err?.message}`);
       console.warn("[IAPService] getProducts failed:", err);
       return [];
     }
   }
 
-  async purchase(productId: string): Promise<void> {
+  /**
+   * Trigger a purchase. Returns a Promise that resolves only after
+   * the purchase is confirmed and finishTransaction is called.
+   * requestPurchase returns null — result comes through purchaseUpdatedListener.
+   */
+  async purchase(sku: string): Promise<void> {
     if (__DEV__) return;
+    const iap = await loadIAP();
+    let updateSub: any = null;
+    let errorSub: any = null;
+
     try {
-      const { requestSubscription } = getRNIAP();
-      await requestSubscription({ sku: productId });
+      iapLog(`requestPurchase() sku: ${sku}`);
+      const purchase = await new Promise<Purchase>((resolve, reject) => {
+        updateSub = iap.purchaseUpdatedListener((p: Purchase) => {
+          iapLog(`purchaseUpdatedListener fired — id: ${(p as any).id}`);
+          resolve(p);
+        });
+        errorSub = iap.purchaseErrorListener((err: any) => {
+          iapLog(`purchaseErrorListener fired — code: ${err?.code} msg: ${err?.message}`);
+          reject(err);
+        });
+        iap.requestPurchase({
+          type: "subs",
+          request: {
+            apple: {
+              sku,
+              andDangerouslyFinishTransactionAutomatically: false,
+            },
+          },
+        });
+      });
+
+      iapLog("finishTransaction() calling...");
+      await iap.finishTransaction({ purchase, isConsumable: false });
+      iapLog("finishTransaction() success — purchase complete");
+      this.onPurchaseSuccessCallback?.(purchase);
     } catch (err: any) {
-      if (err?.code !== "E_USER_CANCELLED") {
-        console.warn("[IAPService] requestSubscription failed:", err);
+      if (err?.code === "E_USER_CANCELLED") {
+        iapLog("Purchase cancelled by user");
+      } else {
+        iapLog(`purchase() error: ${err?.message}`);
+        console.warn("[IAPService] purchase failed:", err);
         throw err;
       }
+    } finally {
+      updateSub?.remove();
+      errorSub?.remove();
     }
   }
 
+  /** Call in _layout.tsx useEffect cleanup */
   async destroy() {
     if (__DEV__) return;
-    this.purchaseUpdateSubscription?.remove();
-    this.purchaseErrorSubscription?.remove();
-    if (this.isConnected) {
-      const { endConnection } = getRNIAP();
-      await endConnection();
-      this.isConnected = false;
+    try {
+      if (this.isConnected) {
+        iapLog("endConnection() calling...");
+        const iap = await loadIAP();
+        await iap.endConnection();
+        this.isConnected = false;
+        iapLog("endConnection() done");
+      }
+    } catch (err: any) {
+      iapLog(`endConnection() failed: ${err?.message}`);
+      console.warn("[IAPService] endConnection failed:", err);
     }
   }
 }

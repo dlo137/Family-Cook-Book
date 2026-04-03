@@ -77,10 +77,11 @@ export default function RootLayout() {
     const isProduction = Constants.appOwnership !== "expo" && !__DEV__;
 
     if (isProduction) {
-      iapService.init(async (purchase: Purchase) => {
-        console.log("[_layout] Purchase completed:", purchase.productId);
+      iapService.setOnPurchaseSuccess(async (purchase: Purchase) => {
+        console.log("[_layout] Purchase completed:", purchase.id);
         await updateProfileAfterPurchase(purchase);
-      }).catch((err) => {
+      });
+      iapService.init().catch((err) => {
         console.warn("[_layout] IAPService.init() failed:", err);
       });
     }

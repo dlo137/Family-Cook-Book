@@ -1,10 +1,10 @@
 import { StyleSheet, Text, View } from "react-native";
 
-export default function Home() {
+export default function Other() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Home</Text>
-      <Text style={styles.subtitle}>Welcome back</Text>
+      <Text style={styles.title}>Other</Text>
+      <Text style={styles.subtitle}>Coming soon</Text>
     </View>
   );
 }

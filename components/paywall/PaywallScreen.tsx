@@ -25,7 +25,7 @@
  */
 
 import { PLANS } from "@/constants/iap";
-import { iapService } from "@/services/IAPService";
+import { iapService, getIAPLogs, setIAPLogListener } from "@/services/IAPService";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -50,6 +50,23 @@ export default function PaywallScreen({ onSuccess, onDismiss }: Props) {
   );
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [debugLogs, setDebugLogs] = useState(getIAPLogs());
+  const [titleTaps, setTitleTaps] = useState(0);
+
+  useEffect(() => {
+    setIAPLogListener(() => setDebugLogs(getIAPLogs()));
+    return () => setIAPLogListener(null);
+  }, []);
+
+  const handleTitleTap = () => {
+    const next = titleTaps + 1;
+    setTitleTaps(next);
+    if (next >= 5) {
+      setDebugVisible((v) => !v);
+      setTitleTaps(0);
+    }
+  };
 
   useEffect(() => {
     const isProduction = !__DEV__;
@@ -65,7 +82,7 @@ export default function PaywallScreen({ onSuccess, onDismiss }: Props) {
    * otherwise falls back to the static price in constants/iap.ts.
    */
   const getPriceForPlan = (planId: string): string => {
-    const live = products.find((p) => p.productId === planId);
+    const live = products.find((p) => (p as any).id === planId);
     if (live?.localizedPrice) return live.localizedPrice;
     return PLANS.find((p) => p.id === planId)?.price ?? "";
   };
@@ -73,9 +90,8 @@ export default function PaywallScreen({ onSuccess, onDismiss }: Props) {
   const handlePurchase = async () => {
     setPurchasing(true);
     try {
+      // purchase() resolves only after finishTransaction confirms the purchase
       await iapService.purchase(selectedId);
-      // ✅ purchaseUpdatedListener in IAPService fires → finishTransaction()
-      // Then we call onSuccess to navigate away
       onSuccess();
     } catch (err: any) {
       Alert.alert("Purchase Failed", err?.message ?? "Something went wrong. Please try again.");
@@ -94,8 +110,30 @@ export default function PaywallScreen({ onSuccess, onDismiss }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Unlock Pro</Text>
+      <Pressable onPress={handleTitleTap}>
+        <Text style={styles.title}>Unlock Pro</Text>
+      </Pressable>
       <Text style={styles.subtitle}>Get full access to all features</Text>
+
+      {debugVisible && (
+        <View style={styles.debugPanel}>
+          <Text style={styles.debugTitle}>IAP Debug Log</Text>
+          <ScrollView style={styles.debugScroll} nestedScrollEnabled>
+            {debugLogs.length === 0 ? (
+              <Text style={styles.debugRow}>No events yet</Text>
+            ) : (
+              [...debugLogs].reverse().map((log, i) => (
+                <Text key={i} style={styles.debugRow}>
+                  <Text style={styles.debugTime}>{log.time} </Text>{log.msg}
+                </Text>
+              ))
+            )}
+          </ScrollView>
+          <Pressable onPress={() => setDebugVisible(false)}>
+            <Text style={styles.debugClose}>Close</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Feature bullets — customize these */}
       <View style={styles.features}>
@@ -186,4 +224,16 @@ const styles = StyleSheet.create({
   ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
   legal: { fontSize: 11, color: "#999", textAlign: "center", marginBottom: 16 },
   dismiss: { fontSize: 14, color: "#999" },
+  debugPanel: {
+    width: "100%",
+    backgroundColor: "#0f172a",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  debugTitle: { color: "#94a3b8", fontSize: 11, fontWeight: "700", marginBottom: 6 },
+  debugScroll: { maxHeight: 200 },
+  debugRow: { color: "#e2e8f0", fontSize: 10, fontFamily: "monospace", marginBottom: 3 },
+  debugTime: { color: "#64748b" },
+  debugClose: { color: "#6366f1", fontSize: 12, textAlign: "right", marginTop: 8 },
 });
