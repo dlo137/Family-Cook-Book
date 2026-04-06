@@ -1,40 +1,45 @@
 import { Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 export default function HomeLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#6366f1",
-        tabBarInactiveTintColor: "#999",
-        tabBarStyle: { borderTopColor: "#e5e7eb" },
+        tabBarActiveTintColor: "#9c3f10",
+        tabBarInactiveTintColor: "#5e4030",
+        tabBarStyle: {
+          backgroundColor: "#fff8f3",
+          borderTopColor: "#ddc1b6",
+          height: 64,
+        },
+        tabBarActiveBackgroundColor: "transparent",
+        tabBarItemStyle: { paddingVertical: 8 },
+        tabBarIndicatorStyle: { backgroundColor: "transparent" },
+        tabBarShowLabel: false,
       }}
     >
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialIcons name="home" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
           ),
         }}
       />
       <Tabs.Screen
         name="other"
         options={{
-          title: "Other",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="grid-outline" size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <MaterialIcons name="search" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
           ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <MaterialIcons name="menu-book" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
           ),
         }}
       />

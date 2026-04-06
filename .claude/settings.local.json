@@ -16,7 +16,8 @@
       "Bash(cp /c/Users/aidaw/Desktop/Code/Mobile_App_Starter/services/IAPService.ts /c/Users/aidaw/Desktop/Code/2_ShopMyRoom/services/IAPService.ts)",
       "Bash(eas build:*)",
       "Bash(node:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(eas build:configure:*)"
     ]
   }
 }

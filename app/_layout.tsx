@@ -39,6 +39,7 @@ if (__DEV__) {
 }
 
 import { AuthProvider } from "@/context/AuthContext";
+import { FavoritesProvider } from "@/context/FavoritesContext";
 import { updateProfileAfterPurchase } from "@/services/ProfileService";
 import { iapService } from "@/services/IAPService";
 import type { Purchase } from "react-native-iap";
@@ -104,10 +105,15 @@ export default function RootLayout() {
   return (
     // Step 5: AuthProvider wraps Stack so all screens have auth context
     <AuthProvider>
+      <FavoritesProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        {/* Add your screens here */}
+        <Stack.Screen name="recipe" />
+        <Stack.Screen name="add-recipe" />
+        <Stack.Screen name="cook-mode" />
+        <Stack.Screen name="add-favorite" />
       </Stack>
+      </FavoritesProvider>
     </AuthProvider>
   );
 }

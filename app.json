@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "ShopMyRoom",
-    "slug": "shopmyroom",
-    "scheme": "shopmyroom",
+    "name": "Family Cookbook",
+    "slug": "family-cookbook",
+    "scheme": "family-cookbook",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,11 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.watsonsweb.shopmyroom",
+      "bundleIdentifier": "com.watsonsweb.Grandmascookbook",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "13"
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {
@@ -46,7 +46,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4e16f312-fb40-4b46-a848-7b616f16ec2d"
+        "projectId": "d1017ef8-f1ac-4f84-959c-85ea7d29887d"
       }
     },
     "owner": "dangelo137"
