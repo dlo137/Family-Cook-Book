@@ -40,9 +40,7 @@ if (__DEV__) {
 
 import { AuthProvider } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
-import { updateProfileAfterPurchase } from "@/services/ProfileService";
 import { iapService } from "@/services/IAPService";
-import type { Purchase } from "react-native-iap";
 import Constants from "expo-constants";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -78,10 +76,6 @@ export default function RootLayout() {
     const isProduction = Constants.appOwnership !== "expo" && !__DEV__;
 
     if (isProduction) {
-      iapService.setOnPurchaseSuccess(async (purchase: Purchase) => {
-        console.log("[_layout] Purchase completed:", purchase.id);
-        await updateProfileAfterPurchase(purchase);
-      });
       iapService.init().catch((err) => {
         console.warn("[_layout] IAPService.init() failed:", err);
       });

@@ -17,7 +17,8 @@
       "Bash(eas build:*)",
       "Bash(node:*)",
       "Bash(npm list:*)",
-      "Bash(eas build:configure:*)"
+      "Bash(eas build:configure:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }

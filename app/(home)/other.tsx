@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -76,6 +77,30 @@ export default function Other() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCooking = () => {
+    setCountdown(3);
+  };
+
+  useEffect(() => {
+    if (countdown === null) return;
+
+    // Pulse animation on each tick
+    scaleAnim.setValue(1.4);
+    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+
+    if (countdown === 0) {
+      setCountdown(null);
+      router.push("/cook-mode");
+      return;
+    }
+
+    intervalRef.current = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => { if (intervalRef.current) clearTimeout(intervalRef.current); };
+  }, [countdown]);
 
   const filtered = RECIPES.filter((r) =>
     r.title.toLowerCase().includes(search.toLowerCase())
@@ -118,6 +143,19 @@ export default function Other() {
             ))}
           </View>
         </Pressable>
+      </Modal>
+
+      {/* Countdown overlay */}
+      <Modal visible={countdown !== null} transparent animationType="fade">
+        <View style={s.countdownOverlay}>
+          <Animated.Text style={[s.countdownNumber, { transform: [{ scale: scaleAnim }] }]}>
+            {countdown}
+          </Animated.Text>
+          <Text style={s.countdownLabel}>Get ready to cook!</Text>
+          <TouchableOpacity style={s.countdownCancel} onPress={() => { setCountdown(null); if (intervalRef.current) clearTimeout(intervalRef.current); }}>
+            <Text style={s.countdownCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </Modal>
 
       <ScrollView
@@ -168,7 +206,7 @@ export default function Other() {
               key={recipe.id}
               style={s.recipeRow}
               activeOpacity={0.7}
-              onPress={() => router.push("/cook-mode")}
+              onPress={startCooking}
             >
               <Image source={{ uri: recipe.uri }} style={s.recipeImg} />
               <View style={s.recipeInfo}>
@@ -265,4 +303,18 @@ const s = StyleSheet.create({
 
   empty: { paddingVertical: 40, alignItems: "center" },
   emptyText: { fontSize: 15, color: C.outline },
+
+  countdownOverlay: {
+    flex: 1, backgroundColor: "rgba(34,26,15,0.85)",
+    alignItems: "center", justifyContent: "center", gap: 16,
+  },
+  countdownNumber: {
+    fontSize: 120, fontWeight: "800", color: C.onPrimary, lineHeight: 130,
+  },
+  countdownLabel: { fontSize: 20, fontWeight: "600", color: C.secondaryContainer },
+  countdownCancel: {
+    marginTop: 24, paddingHorizontal: 28, paddingVertical: 10,
+    borderRadius: 999, borderWidth: 1.5, borderColor: C.outlineVariant,
+  },
+  countdownCancelText: { fontSize: 14, fontWeight: "600", color: C.outlineVariant },
 });

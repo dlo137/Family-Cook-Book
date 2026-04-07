@@ -32,8 +32,8 @@ export async function updateProfileAfterPurchase(purchase: Purchase) {
     .update({
       is_pro_version: true,
       is_trial_version: false,
-      subscription_plan: (purchase as any).id ?? (purchase as any).productId,
-      subscription_id: (purchase as any).transactionId ?? null,
+      subscription_plan: (purchase as any).productId ?? (purchase as any).id,
+      subscription_id: (purchase as any).id ?? (purchase as any).transactionId ?? null,
       purchase_time: purchase.transactionDate
         ? new Date(Number(purchase.transactionDate)).toISOString()
         : new Date().toISOString(),
