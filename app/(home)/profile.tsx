@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -38,12 +40,14 @@ export default function ProfileScreen() {
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null);
   const [generationsCount, setGenerationsCount] = useState(0);
+  const [familyRole, setFamilyRole] = useState<string | null>(null);
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('is_pro_version, subscription_plan, credits_current, generations_count')
+      .select('is_pro_version, subscription_plan, credits_current, generations_count, family_role')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -52,6 +56,7 @@ export default function ProfileScreen() {
           setSubscriptionPlan(data.subscription_plan ?? null);
           setCreditsLeft(data.credits_current ?? null);
           setGenerationsCount(data.generations_count ?? 0);
+          setFamilyRole(data.family_role ?? null);
         }
       });
   }, [user?.id]);
@@ -161,6 +166,50 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
+
+        {/* FAMILY ROLE */}
+        <View style={s.card}>
+          <Text style={s.sectionLabel}>Family Role</Text>
+          <TouchableOpacity style={s.roleRow} onPress={() => setRolePickerOpen(true)} activeOpacity={0.7}>
+            <Text style={s.roleValue}>
+              Family Role: <Text style={s.roleValueBold}>{familyRole ?? 'Not set'}</Text>
+            </Text>
+            <MaterialIcons name="add" size={20} color={C.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Role Picker Modal */}
+        <Modal visible={rolePickerOpen} transparent animationType="slide" onRequestClose={() => setRolePickerOpen(false)}>
+          <Pressable style={s.roleModalOverlay} onPress={() => setRolePickerOpen(false)}>
+            <Pressable style={s.roleModalSheet} onPress={() => {}}>
+              <View style={s.roleModalHandle} />
+              <Text style={s.roleModalTitle}>Select Family Role</Text>
+              {['Mom', 'Dad', 'Grandma', 'Grandpa', 'Sister', 'Brother', 'Aunt', 'Uncle', 'Other'].map((role) => {
+                const active = familyRole === role;
+                return (
+                  <TouchableOpacity
+                    key={role}
+                    style={s.roleOption}
+                    onPress={async () => {
+                      setFamilyRole(role);
+                      setRolePickerOpen(false);
+                      if (user) {
+                        await supabase
+                          .from('profiles')
+                          .update({ family_role: role })
+                          .eq('id', user.id);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[s.roleOptionText, active && s.roleOptionTextActive]}>{role}</Text>
+                    {active && <MaterialIcons name="check" size={18} color={C.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* SETTINGS */}
         <View style={s.card}>
@@ -282,4 +331,22 @@ const s = StyleSheet.create({
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: C.border, marginLeft: 48 },
 
   version: { textAlign: 'center', fontSize: 12, color: C.textMuted, marginTop: 4 },
+
+  roleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roleValue: { fontSize: 15, color: C.textSecondary },
+  roleValueBold: { fontWeight: '700', color: C.text },
+
+  roleModalOverlay: { flex: 1, backgroundColor: 'rgba(34,26,15,0.5)', justifyContent: 'flex-end' },
+  roleModalSheet: {
+    backgroundColor: C.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40,
+  },
+  roleModalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: 'center', marginBottom: 20 },
+  roleModalTitle: { fontSize: 18, fontWeight: '700', color: C.text, marginBottom: 12 },
+  roleOption: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+  },
+  roleOptionText: { fontSize: 16, color: C.textSecondary, fontWeight: '500' },
+  roleOptionTextActive: { color: C.primary, fontWeight: '700' },
 });

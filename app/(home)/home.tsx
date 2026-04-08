@@ -61,7 +61,7 @@ const FAMILY = [
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxWGPbNEawsG3axY83GA5D-2w7Tt8gYvXVlBZZHwXHFOyTZXBOr95TW-nX6VXn5mtAx6BehUwQfB-KPqjNFDWbXgzdLwsyWnzM49DRA2u319eWZ_Sd0MxtdBZbWNEKrnOyjLO750TGsxLncVwgtCtAP46XZSQSC-Lxx0gAv1_4SKA8V5viP390w08AonpenbCllAOn4Imx00WMPaDmb53PmjGwonH0gQcK1j-EVi2Bx7VvsIp-ANobpz_0rL3CZZFFtW6aJd2P3Xk",
     recipes: [
       {
-        id: "default-mom",
+        id: "1",
         name: "Mom's Famous Lasagna",
         uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
       },
@@ -74,7 +74,7 @@ const FAMILY = [
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAjnbgU_5_u65tlYEEzommgafl584wdlO4l2dKSPT0-ZJEn5a-lqmYvGh0zZcYR-pZ-yrpP08lp1k_Msz2jR5e9GOKnHyx9ruxg1LZNBRmDyLZ7DFE2O84qjDFB42QjWUgLAIjsKPvvj6m5borLgpL2bHw_cKWheYBVDXug2HL_9BJ4catqMYGc6HKWIDaQHvwxSH81MKAo4RvpvR71E3x6Jwfr4x04qHaV77WmvtOXkrlvRUyQVqklkOVbqGFHAdnWYfOo4vsdteo",
     recipes: [
       {
-        id: "default-dad",
+        id: "3",
         name: "Dad's Summer Salad",
         uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
       },
@@ -87,7 +87,7 @@ const FAMILY = [
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA02DNm62bt4F_evfbcb2DhU8WvSyXAEDq6FeVKHfohl4mbWHLaUn2fPSTLwZtfUlj7T-D8_7z5VbSbm9aVKl4fStAfXnnfz9pIL1Qy_ar2ihmNXKsrcyBgAVcT_jlooj9Q8o4nOFeV6Ps2wzslsslIMYXBAa2-TvFzgtol-UbvfUggMOn1vXDkJwHSIkJDjY81zzZNYtpjiH0HQhBBn8oAq1nswKGuXbJaIUWJQHwAtpnTF0QzH8rvjt3OI4u_2ow01cl3seBv_-0",
     recipes: [
       {
-        id: "default-grandma",
+        id: "2",
         name: "Grandma's Sunday Roast",
         uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
       },
@@ -103,7 +103,7 @@ const AVATAR_TEMPLATES = [
 
 const MENU_ITEMS = [
   { label: "Home", icon: "home" as const, route: "/(home)/home" },
-  { label: "Search", icon: "search" as const, route: "/(home)/other" },
+  { label: "Search", icon: "search" as const, route: "/(home)/cook" },
   { label: "Profile", icon: "person" as const, route: "/(home)/profile" },
 ];
 
@@ -226,7 +226,7 @@ export default function Home() {
                         key={recipe.id}
                         style={s.recipeRow}
                         activeOpacity={0.7}
-                        onPress={() => router.push("/recipe")}
+                        onPress={() => router.push({ pathname: "/recipe", params: { id: recipe.id } } as any)}
                       >
                         <Image source={{ uri: recipe.uri }} style={s.recipeImg} />
                         <Text style={s.recipeName}>{recipe.name}</Text>

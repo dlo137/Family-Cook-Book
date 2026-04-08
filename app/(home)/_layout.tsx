@@ -28,7 +28,7 @@ export default function HomeLayout() {
         }}
       />
       <Tabs.Screen
-        name="other"
+        name="cook"
         options={{
           tabBarIcon: ({ focused }) => (
             <MaterialIcons name="search" size={26} color={focused ? "#9c3f10" : "#5e4030"} />

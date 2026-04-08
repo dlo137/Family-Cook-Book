@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { Audio } from "expo-av";
 
 const C = {
   primary: "#9c3f10",
@@ -43,30 +44,35 @@ const RECIPES = [
     id: "1",
     title: "Mom's Famous Lasagna",
     meta: "45 min • 6 servings",
+    by: "Mom",
     uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
   },
   {
     id: "2",
     title: "Grandma's Sunday Roast",
     meta: "120 min • 8 servings",
+    by: "Grandma",
     uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
   },
   {
     id: "3",
     title: "Dad's Summer Salad",
     meta: "15 min • 2 servings",
+    by: "Dad",
     uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
   },
   {
     id: "4",
     title: "Sister's Taco Night Special",
     meta: "30 min • 4 servings",
+    by: "Mom",
     uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1bf1dMfvl-csxrk-CEyO0084IFm0C_Hh9GkZ3s2-FJkEKy_vCKJ6ap_aoLAoSbWp13soa3a2ejmVNQ60JFHE1qPdhqzeysKONmKRpOwvZhVOSbI3Ch70MHz8yqf5ZPNjhWVwIah-_KoMbgnJUuSRBwWqiRwikL40IVcYqYBKvV9G7VyMlBDIPEB5_TexZaB__qBXVdiMERrfl0lIPV1JqBlK538RAOapYEBe63aW0yBhODxI-MgQE4Jd-9sd53xguDlJ1WHjKd5c",
   },
   {
     id: "5",
     title: "Weekend Fluffy Pancakes",
     meta: "25 min • 4 servings",
+    by: "Dad",
     uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDgRl31faxhk8MrSS85YhPicd12q2ks6PeGTxS43mNIA5RKTDBMmZ3IvkyDkBeP0ExQfTZ6FdrJB7lXkzK8pyQEDhISwXZsjMmq3cb8wQQSmT_XZvRZ1TqqBWZ-0DlKIUhQJ6bsmW16Tm_9GSHxRIX-1QIC6TluFRMALwVcCMt1A5dxdh5f9kf1Y1yGLVGddtTFGMMX3x186zhf1bPyRD6wTTzz6ebdhTAU5o1V-TOVYnXH6Jt1qg4l6Ylt4yNFBCDn-Iw4k0RmCNk",
   },
 ];
@@ -77,13 +83,43 @@ export default function Other() {
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  function toggleFavorite(id: string) {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string>("1");
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickSoundRef = useRef<Audio.Sound | null>(null);
 
-  const startCooking = () => {
+  // Load sound once on mount, unload on unmount
+  useEffect(() => {
+    Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+    Audio.Sound.createAsync(require("../../assets/sounds/timer-beep.mp3"))
+      .then(({ sound }) => { tickSoundRef.current = sound; })
+      .catch((e) => console.warn("Could not load tick sound:", e));
+    return () => { tickSoundRef.current?.unloadAsync(); };
+  }, []);
+
+  const startCooking = (recipeId: string) => {
+    setSelectedRecipeId(recipeId);
+    playTick();
     setCountdown(3);
   };
+
+  async function playTick() {
+    try {
+      await tickSoundRef.current?.replayAsync();
+    } catch (e) {
+      console.warn("Countdown sound error:", e);
+    }
+  }
 
   useEffect(() => {
     if (countdown === null) return;
@@ -94,7 +130,7 @@ export default function Other() {
 
     if (countdown === 0) {
       setCountdown(null);
-      router.push("/cook-mode");
+      router.push({ pathname: "/cook-mode", params: { id: selectedRecipeId } } as any);
       return;
     }
 
@@ -102,9 +138,12 @@ export default function Other() {
     return () => { if (intervalRef.current) clearTimeout(intervalRef.current); };
   }, [countdown]);
 
-  const filtered = RECIPES.filter((r) =>
-    r.title.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = RECIPES.filter((r) => {
+    const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase());
+    if (activeFilter === "Favorites") return matchesSearch && favorites.has(r.id);
+    if (activeFilter !== "All") return matchesSearch && r.by === activeFilter;
+    return matchesSearch;
+  });
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -152,7 +191,7 @@ export default function Other() {
             {countdown}
           </Animated.Text>
           <Text style={s.countdownLabel}>Get ready to cook!</Text>
-          <TouchableOpacity style={s.countdownCancel} onPress={() => { setCountdown(null); if (intervalRef.current) clearTimeout(intervalRef.current); }}>
+          <TouchableOpacity style={s.countdownCancel} onPress={() => { setCountdown(null); if (intervalRef.current) clearTimeout(intervalRef.current); tickSoundRef.current?.stopAsync(); }}>
             <Text style={s.countdownCancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -206,13 +245,24 @@ export default function Other() {
               key={recipe.id}
               style={s.recipeRow}
               activeOpacity={0.7}
-              onPress={startCooking}
+              onPress={() => startCooking(recipe.id)}
             >
               <Image source={{ uri: recipe.uri }} style={s.recipeImg} />
               <View style={s.recipeInfo}>
                 <Text style={s.recipeTitle}>{recipe.title}</Text>
                 <Text style={s.recipeMeta}>{recipe.meta}</Text>
               </View>
+              <TouchableOpacity
+                style={s.heartBtn}
+                onPress={(e) => { e.stopPropagation(); toggleFavorite(recipe.id); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialIcons
+                  name={favorites.has(recipe.id) ? "favorite" : "favorite-border"}
+                  size={22}
+                  color={favorites.has(recipe.id) ? C.primary : C.outlineVariant}
+                />
+              </TouchableOpacity>
               <View style={s.startBtn}>
                 <Text style={s.startBtnText}>Start</Text>
               </View>
@@ -221,7 +271,11 @@ export default function Other() {
 
           {filtered.length === 0 && (
             <View style={s.empty}>
-              <Text style={s.emptyText}>No recipes found.</Text>
+              <Text style={s.emptyText}>
+                {activeFilter === "Favorites"
+                  ? "No favorites yet. Tap ♡ on a recipe to save it."
+                  : "No recipes found."}
+              </Text>
             </View>
           )}
         </View>
@@ -293,6 +347,8 @@ const s = StyleSheet.create({
   recipeInfo: { flex: 1 },
   recipeTitle: { fontSize: 17, fontWeight: "700", color: C.onSurface, lineHeight: 22 },
   recipeMeta: { fontSize: 13, color: C.onSurfaceVariant, marginTop: 4 },
+
+  heartBtn: { padding: 4 },
 
   startBtn: {
     backgroundColor: C.primary,

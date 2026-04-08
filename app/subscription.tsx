@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -171,17 +172,17 @@ export default function Subscription() {
 
       <Animated.ScrollView
         style={{ opacity: fadeAnim, flex: 1 }}
-        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 100 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Icon */}
         <View style={s.iconWrap}>
-          <MaterialIcons name="menu-book" size={52} color={C.primary} />
+          <Image source={require('../assets/icon.png')} style={s.appIcon} />
         </View>
 
-        <Text style={s.title}>Family Cookbook{'\n'}Premium</Text>
+        <Text style={s.title}>Grandma's CookBook</Text>
         <Text style={s.subtitle}>
-          Unlock unlimited family members, recipes, and the full cook mode experience.
+          Some things are too precious to forget. Your family’s recipes, always there when you need them.
         </Text>
 
         {/* Features */}
@@ -199,7 +200,10 @@ export default function Subscription() {
           ))}
         </View>
 
-        {/* Plan cards */}
+      </Animated.ScrollView>
+
+      {/* Fixed bottom: plan cards + button */}
+      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <View style={s.plans}>
           {PLANS.map((plan) => {
             const active = selectedPlan === plan.planKey;
@@ -235,16 +239,6 @@ export default function Subscription() {
             );
           })}
         </View>
-
-        <Text style={s.legal}>
-          Payment will be charged to your Apple ID account. Subscriptions automatically renew unless
-          cancelled at least 24 hours before the end of the current period. Lifetime purchase is a
-          one-time payment with no recurring charges.
-        </Text>
-      </Animated.ScrollView>
-
-      {/* Fixed bottom button */}
-      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
           style={[s.ctaBtn, ctaDisabled && s.ctaBtnDisabled]}
           onPress={handleContinue}
@@ -303,13 +297,13 @@ const s = StyleSheet.create({
   iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   restore: { fontSize: 13, color: C.outline, fontWeight: '500' },
 
-  scroll: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 8 },
+  scroll: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 },
 
   iconWrap: {
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: C.surfaceContainerLow, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.secondaryContainer, marginBottom: 20,
+    width: 100, height: 100, borderRadius: 22,
+    overflow: 'hidden', marginBottom: 20,
   },
+  appIcon: { width: '100%', height: '100%' },
 
   title: {
     fontSize: 30, fontWeight: '800', color: C.onSurface,
@@ -317,14 +311,14 @@ const s = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15, fontWeight: '500', color: C.onSurfaceVariant,
-    textAlign: 'center', lineHeight: 22, maxWidth: 300, marginBottom: 24,
+    textAlign: 'center', lineHeight: 22, maxWidth: 340, marginBottom: 24,
   },
 
   features: { width: '100%', gap: 10, marginBottom: 28 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   featureText: { fontSize: 15, color: C.onSurface, fontWeight: '500', flex: 1 },
 
-  plans: { width: '100%', gap: 12, marginBottom: 20 },
+  plans: { width: '100%', gap: 12, marginBottom: 12 },
   planCard: {
     borderRadius: 14, borderWidth: 1.5, borderColor: '#e8d5c8',
     backgroundColor: '#fffaf6', padding: 16, paddingTop: 20,

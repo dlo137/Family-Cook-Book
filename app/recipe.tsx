@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 const C = {
   primary: "#9c3f10",
@@ -28,20 +28,109 @@ const C = {
   onPrimary: "#ffffff",
 };
 
-const INGREDIENTS = [
-  { id: "1", text: "1 lb Ground Beef" },
-  { id: "2", text: "2 cups Ricotta Cheese" },
-  { id: "3", text: "1 package Lasagna Noodles" },
-];
-
-const STEPS = [
-  "Brown the ground beef in a large skillet over medium heat until no longer pink. Drain excess fat and set aside to cool slightly.",
-  "Layer noodles and cheese. Start with a thin layer of sauce, followed by noodles, ricotta mixture, and ground beef. Repeat until the dish is full.",
-];
+const RECIPES: Record<string, {
+  title: string;
+  by: string;
+  uri: string;
+  prep: string;
+  cook: string;
+  servings: string;
+  tip: string;
+  ingredients: { id: string; text: string }[];
+  steps: string[];
+}> = {
+  "1": {
+    title: "Mom's Famous Lasagna",
+    by: "Mom",
+    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
+    prep: "20 min",
+    cook: "45 min",
+    servings: "6",
+    tip: "Add a pinch of nutmeg to the ricotta — it's Grandma's secret.",
+    ingredients: [
+      { id: "1", text: "1 lb Ground Beef" },
+      { id: "2", text: "2 cups Ricotta Cheese" },
+      { id: "3", text: "1 package Lasagna Noodles" },
+      { id: "4", text: "2 cups Shredded Mozzarella" },
+      { id: "5", text: "1 jar Marinara Sauce" },
+      { id: "6", text: "1 Egg" },
+      { id: "7", text: "Pinch of Nutmeg" },
+      { id: "8", text: "Salt & Pepper to taste" },
+    ],
+    steps: [
+      "Preheat your oven to 375°F (190°C). Bring a large pot of salted water to a boil.",
+      "Brown the ground beef in a large skillet over medium heat until no longer pink. Drain excess fat and season with salt and pepper.",
+      "Stir the marinara sauce into the cooked beef. Reduce heat and simmer for 10 minutes.",
+      "Mix the ricotta cheese with the egg and a pinch of nutmeg until smooth.",
+      "Cook the lasagna noodles according to package directions. Drain and lay flat.",
+      "Layer noodles, ricotta mixture, meat sauce, and mozzarella in a 9×13 baking dish. Repeat until all ingredients are used.",
+      "Top with remaining mozzarella. Cover with foil and bake for 25 minutes.",
+      "Remove foil and bake an additional 20 minutes until golden and bubbly. Rest 10 minutes before slicing.",
+    ],
+  },
+  "2": {
+    title: "Grandma's Sunday Roast",
+    by: "Grandma",
+    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
+    prep: "20 min",
+    cook: "3 hrs",
+    servings: "8",
+    tip: "Low and slow is the only way — Grandma never rushed a roast.",
+    ingredients: [
+      { id: "1", text: "3 lb Beef Chuck Roast" },
+      { id: "2", text: "4 medium Potatoes, quartered" },
+      { id: "3", text: "3 large Carrots, cut into chunks" },
+      { id: "4", text: "2 Onions, sliced" },
+      { id: "5", text: "4 cloves Garlic, minced" },
+      { id: "6", text: "2 cups Beef Stock" },
+      { id: "7", text: "2 tbsp Olive Oil" },
+      { id: "8", text: "Fresh Rosemary & Thyme" },
+      { id: "9", text: "Salt & Pepper to taste" },
+    ],
+    steps: [
+      "Preheat your oven to 325°F (165°C). Pat the roast dry and season generously with salt and pepper.",
+      "Heat olive oil in a Dutch oven over high heat. Sear the roast on all sides until deeply browned, about 3–4 minutes per side.",
+      "Reduce heat. Add onions and garlic and cook 3 minutes. Add beef stock, scraping up browned bits.",
+      "Return the roast to the pot. Tuck potatoes, carrots, and herbs around it.",
+      "Cover tightly and roast in the oven for 2.5–3 hours until fall-apart tender.",
+      "Remove roast and vegetables. Simmer the juices on the stovetop for 5 minutes to make gravy. Serve together.",
+    ],
+  },
+  "3": {
+    title: "Dad's Summer Salad",
+    by: "Dad",
+    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
+    prep: "15 min",
+    cook: "0 min",
+    servings: "2",
+    tip: "Soak the red onion in cold water first — Dad's trick for a milder bite.",
+    ingredients: [
+      { id: "1", text: "1 large head Romaine Lettuce, chopped" },
+      { id: "2", text: "1 cup Cherry Tomatoes, halved" },
+      { id: "3", text: "1 Cucumber, sliced" },
+      { id: "4", text: "½ Red Onion, thinly sliced" },
+      { id: "5", text: "½ cup Kalamata Olives" },
+      { id: "6", text: "100g Feta Cheese, crumbled" },
+      { id: "7", text: "3 tbsp Olive Oil" },
+      { id: "8", text: "1½ tbsp Red Wine Vinegar" },
+      { id: "9", text: "1 tsp Dried Oregano" },
+      { id: "10", text: "Salt & Pepper to taste" },
+    ],
+    steps: [
+      "Soak the sliced red onion in cold water for 10 minutes, then drain.",
+      "Combine the romaine, cherry tomatoes, cucumber, and drained red onion in a large bowl.",
+      "Whisk together olive oil, red wine vinegar, oregano, salt, and pepper.",
+      "Add the olives and drizzle the dressing over the salad. Toss gently.",
+      "Top with crumbled feta and serve immediately.",
+    ],
+  },
+};
 
 export default function Recipe() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const recipe = RECIPES[id ?? "1"] ?? RECIPES["1"];
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [favorited, setFavorited] = useState(false);
 
@@ -64,31 +153,28 @@ export default function Recipe() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         {/* Hero */}
         <View style={s.heroWrap}>
-          <Image
-            source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDywNsQkbthUhtC2HoYPympzrDFKzvr14B7V9tyADNFPEdncewkiRWr20jjGg3t-GKe1aE69T2KVvZZhZR-jffQHenO0JrMbfgZQGY9Rz_Fw4fk6AW0EcVpdwxeal2pALGAUlghVBHhOvNhqsAQsgcDP-PZkU_Bxft2v27Zo9VUeXF_LqdbrjT-BAQmUZVq4-t8nZM0aN2mo6INm5Q85L547F7dedQLQvP5bLDhTXKEI5huXHguVIxw8Xdu1yVP3hFdRaAMPHY6Lcs" }}
-            style={s.heroImg}
-          />
+          <Image source={{ uri: recipe.uri }} style={s.heroImg} />
           <View style={s.heroGradient} />
           <View style={s.heroBadge}>
-            <Text style={s.heroBadgeText}>By Mom</Text>
+            <Text style={s.heroBadgeText}>By {recipe.by}</Text>
           </View>
         </View>
 
         {/* Title + Meta */}
         <View style={s.titleBlock}>
-          <Text style={s.title}>Mom's Famous Lasagna</Text>
+          <Text style={s.title}>{recipe.title}</Text>
           <View style={s.metaRow}>
             <View style={s.metaItem}>
               <MaterialIcons name="timer" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Prep: 20 min</Text>
+              <Text style={s.metaLabel}>Prep: {recipe.prep}</Text>
             </View>
             <View style={s.metaItem}>
               <MaterialIcons name="outdoor-grill" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Cook: 45 min</Text>
+              <Text style={s.metaLabel}>Cook: {recipe.cook}</Text>
             </View>
             <View style={s.metaItem}>
               <MaterialIcons name="restaurant" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Servings: 6</Text>
+              <Text style={s.metaLabel}>Servings: {recipe.servings}</Text>
             </View>
           </View>
         </View>
@@ -123,7 +209,7 @@ export default function Recipe() {
             <Text style={s.sectionTitle}>Ingredients</Text>
             <Text style={s.editableLabel}>EDITABLE</Text>
           </View>
-          {INGREDIENTS.map((ing) => (
+          {recipe.ingredients.map((ing) => (
             <TouchableOpacity
               key={ing.id}
               style={s.ingredientRow}
@@ -150,16 +236,14 @@ export default function Recipe() {
         <View style={s.section}>
           <View style={s.tipCard}>
             <Text style={s.tipTitle}>Grandma's Tip</Text>
-            <Text style={s.tipText}>
-              "Add a pinch of nutmeg to the ricotta for a secret family flavor."
-            </Text>
+            <Text style={s.tipText}>"{recipe.tip}"</Text>
           </View>
         </View>
 
         {/* Instructions */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Instructions</Text>
-          {STEPS.map((step, i) => (
+          {recipe.steps.map((step, i) => (
             <View key={i} style={s.stepWrap}>
               <View style={s.stepBadge}>
                 <Text style={s.stepBadgeText}>{i + 1}</Text>
