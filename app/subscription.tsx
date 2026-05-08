@@ -18,14 +18,15 @@ import { iapService } from '@/services/IAPService';
 import { PRODUCT_IDS, PLANS } from '@/constants/iap';
 
 const C = {
-  primary: '#9c3f10',
-  surface: '#fff8f3',
-  surfaceContainerLow: '#fff2e2',
-  secondaryContainer: '#fecb98',
-  onSurface: '#221a0f',
-  onSurfaceVariant: '#56423a',
-  outline: '#8a7269',
-  badge: '#c0440f',
+  primary: '#556B2F',
+  surface: '#F6F3EA',
+  surfaceContainerLow: '#EDE7D9',
+  secondaryContainer: '#D4C89A',
+  onSurface: '#3F3426',
+  onSurfaceVariant: '#5C4F3A',
+  outline: '#7A6E5A',
+  badge: '#3D5226',
+  accent: '#C97B63',
 };
 
 type PlanKey = 'monthly' | 'lifetime';
@@ -60,7 +61,7 @@ export default function Subscription() {
         setProducts(results);
         setIapReady(true);
       } catch {
-        setIapReady(false);
+        if (!__DEV__) setIapReady(false);
       } finally {
         setLoadingProducts(false);
       }
@@ -74,29 +75,29 @@ export default function Subscription() {
   async function simulatePurchase(plan: PlanKey) {
     setPurchasing(true);
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) throw new Error('Not authenticated');
-      await supabase
-        .from('profiles')
-        .update({
-          subscription_plan: plan,
-          is_pro_version: true,
-          entitlement: 'pro',
-          subscription_id: `dev_${plan}_${Date.now()}`,
-          purchase_time: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({
+            subscription_plan: plan,
+            is_pro_version: true,
+            entitlement: 'pro',
+            subscription_id: `dev_${plan}_${Date.now()}`,
+            purchase_time: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+      }
+      // No user yet — they'll create an account in the next modal
+    } finally {
       setPurchasing(false);
-      router.replace('/(home)/home');
-    } catch {
-      setPurchasing(false);
-      Alert.alert('Simulation Error', 'Could not simulate subscription. Are you logged in?');
+      showAccountModal();
     }
   }
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   async function handleContinue() {
-    if (__DEV__ && products.length === 0) {
+    if (__DEV__) {
       await simulatePurchase(selectedPlan);
       return;
     }
@@ -112,7 +113,7 @@ export default function Subscription() {
     try {
       await iapService.purchaseProduct(product.id ?? product.productId);
       setPurchasing(false);
-      router.replace('/(home)/home');
+      showAccountModal();
     } catch (err: any) {
       setPurchasing(false);
       const msg = String(err?.message || err);
@@ -129,7 +130,7 @@ export default function Subscription() {
       const results = await iapService.restorePurchases();
       if (results && results.length > 0) {
         Alert.alert('Restored', 'Your purchases have been restored!', [
-          { text: 'Continue', onPress: () => { isRestoringRef.current = false; router.replace('/(home)/home'); } },
+          { text: 'Continue', onPress: () => { isRestoringRef.current = false; showAccountModal(); } },
         ]);
       } else {
         isRestoringRef.current = false;
@@ -150,8 +151,13 @@ export default function Subscription() {
   function dismissDiscount() {
     Animated.timing(slideAnim, { toValue: 300, duration: 250, useNativeDriver: true }).start(() => {
       setDiscountVisible(false);
-      router.replace('/(home)/home');
+      router.replace('/onboarding');
     });
+  }
+
+  function showAccountModal() {
+    router.replace('/(home)/home');
+    router.push('/account-promo');
   }
 
   const ctaLabel = !iapReady || loadingProducts ? 'Loading...' : purchasing ? 'Processing...' : 'Get Started';
@@ -277,7 +283,7 @@ export default function Subscription() {
                 <Text style={s.discountBtnText}>View Lifetime Plan</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={dismissDiscount} activeOpacity={0.6} style={s.discountSkip}>
-                <Text style={s.discountSkipText}>No thanks, continue for free</Text>
+                <Text style={s.discountSkipText}>No thanks, go back</Text>
               </TouchableOpacity>
             </Pressable>
           </Animated.View>
@@ -320,8 +326,8 @@ const s = StyleSheet.create({
 
   plans: { width: '100%', gap: 12, marginBottom: 12 },
   planCard: {
-    borderRadius: 14, borderWidth: 1.5, borderColor: '#e8d5c8',
-    backgroundColor: '#fffaf6', padding: 16, paddingTop: 20,
+    borderRadius: 14, borderWidth: 1.5, borderColor: '#C8D4A0',
+    backgroundColor: '#F8FAF0', padding: 16, paddingTop: 20,
   },
   planCardActive: { borderColor: C.primary, backgroundColor: C.surfaceContainerLow },
 
@@ -356,7 +362,7 @@ const s = StyleSheet.create({
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: C.surface, paddingHorizontal: 24, paddingTop: 12,
-    borderTopWidth: 1, borderTopColor: '#f0ddd0',
+    borderTopWidth: 1, borderTopColor: '#D0D9B0',
   },
   ctaBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -375,7 +381,7 @@ const s = StyleSheet.create({
   },
   discountHandle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#e0cfc6', alignSelf: 'center', marginBottom: 20,
+    backgroundColor: '#B8C898', alignSelf: 'center', marginBottom: 20,
   },
   discountIconWrap: {
     width: 72, height: 72, borderRadius: 36, backgroundColor: C.surfaceContainerLow,

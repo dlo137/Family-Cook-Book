@@ -42,10 +42,11 @@ import { AuthProvider } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { iapService } from "@/services/IAPService";
 import Constants from "expo-constants";
-import { useFonts } from "expo-font";
+import { useFonts, GreatVibes_400Regular } from "@expo-google-fonts/great-vibes";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // ✅ Must be called at module level, before any async work
 SplashScreen.preventAutoHideAsync();
@@ -55,7 +56,7 @@ export default function RootLayout() {
 
   // Step 2: Load custom fonts (remove if using system fonts only)
   const [fontsLoaded] = useFonts({
-    // "MyFont-Regular": require("../assets/fonts/MyFont-Regular.ttf"),
+    GreatVibes_400Regular,
   });
 
   // Step 3: Fonts done → mark ready immediately, don't wait for IAP
@@ -89,7 +90,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Step 4: Hide splash only after fonts + IAP are both ready
     if (isReady) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {});
     }
   }, [isReady]);
 
@@ -97,7 +98,7 @@ export default function RootLayout() {
   if (!isReady) return null;
 
   return (
-    // Step 5: AuthProvider wraps Stack so all screens have auth context
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
       <FavoritesProvider>
       <Stack screenOptions={{ headerShown: false }}>
@@ -106,8 +107,10 @@ export default function RootLayout() {
         <Stack.Screen name="add-recipe" />
         <Stack.Screen name="cook-mode" />
         <Stack.Screen name="add-favorite" />
+        <Stack.Screen name="account-promo" options={{ presentation: 'transparentModal', headerShown: false, animation: 'slide_from_bottom' }} />
       </Stack>
       </FavoritesProvider>
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

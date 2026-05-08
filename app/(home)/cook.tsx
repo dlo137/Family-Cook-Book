@@ -3,7 +3,6 @@ import {
   Animated,
   Image,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,29 +14,26 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Audio } from "expo-av";
+import { LinearGradient } from "expo-linear-gradient";
 
 const C = {
-  primary: "#9c3f10",
-  surface: "#fff8f3",
-  surfaceContainer: "#fbecd9",
-  surfaceContainerLow: "#fff2e2",
-  surfaceContainerHigh: "#f5e6d3",
-  surfaceContainerLowest: "#ffffff",
-  onSurface: "#221a0f",
-  onSurfaceVariant: "#56423a",
-  outlineVariant: "#ddc1b6",
-  secondaryContainer: "#fecb98",
-  outline: "#8a7269",
+  primary: "#556B2F",
+  surface: "#F6F3EA",
+  surfaceContainer: "#E8E0CE",
+  surfaceContainerLow: "#EDE7D9",
+  surfaceContainerHigh: "#DDD4BE",
+  surfaceContainerLowest: "#FDFAF4",
+  onSurface: "#3F3426",
+  onSurfaceVariant: "#5C4F3A",
+  outlineVariant: "#C8BFAB",
+  secondaryContainer: "#D4C89A",
+  outline: "#7A6E5A",
   onPrimary: "#ffffff",
+  accent: "#C97B63",
 };
 
 const FILTERS = ["All", "Favorites", "Mom", "Dad", "Grandma"];
 
-const MENU_ITEMS = [
-  { label: "Home", icon: "home" as const, route: "/(home)/home" },
-  { label: "Search", icon: "search" as const, route: "/(home)/other" },
-  { label: "Profile", icon: "person" as const, route: "/(home)/profile" },
-];
 
 const RECIPES = [
   {
@@ -45,35 +41,35 @@ const RECIPES = [
     title: "Mom's Famous Lasagna",
     meta: "45 min • 6 servings",
     by: "Mom",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
+    source: require("../../assets/lasagna.png"),
   },
   {
     id: "2",
     title: "Grandma's Sunday Roast",
     meta: "120 min • 8 servings",
     by: "Grandma",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
+    source: require("../../assets/beefstew.jpg"),
   },
   {
     id: "3",
     title: "Dad's Summer Salad",
     meta: "15 min • 2 servings",
     by: "Dad",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
+    source: require("../../assets/salad1.avif"),
   },
   {
     id: "4",
     title: "Sister's Taco Night Special",
     meta: "30 min • 4 servings",
     by: "Mom",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1bf1dMfvl-csxrk-CEyO0084IFm0C_Hh9GkZ3s2-FJkEKy_vCKJ6ap_aoLAoSbWp13soa3a2ejmVNQ60JFHE1qPdhqzeysKONmKRpOwvZhVOSbI3Ch70MHz8yqf5ZPNjhWVwIah-_KoMbgnJUuSRBwWqiRwikL40IVcYqYBKvV9G7VyMlBDIPEB5_TexZaB__qBXVdiMERrfl0lIPV1JqBlK538RAOapYEBe63aW0yBhODxI-MgQE4Jd-9sd53xguDlJ1WHjKd5c",
+    source: require("../../assets/tacos.webp"),
   },
   {
     id: "5",
     title: "Weekend Fluffy Pancakes",
     meta: "25 min • 4 servings",
     by: "Dad",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDgRl31faxhk8MrSS85YhPicd12q2ks6PeGTxS43mNIA5RKTDBMmZ3IvkyDkBeP0ExQfTZ6FdrJB7lXkzK8pyQEDhISwXZsjMmq3cb8wQQSmT_XZvRZ1TqqBWZ-0DlKIUhQJ6bsmW16Tm_9GSHxRIX-1QIC6TluFRMALwVcCMt1A5dxdh5f9kf1Y1yGLVGddtTFGMMX3x186zhf1bPyRD6wTTzz6ebdhTAU5o1V-TOVYnXH6Jt1qg4l6Ylt4yNFBCDn-Iw4k0RmCNk",
+    source: require("../../assets/pancakes.webp"),
   },
 ];
 
@@ -82,7 +78,6 @@ export default function Other() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   function toggleFavorite(id: string) {
@@ -146,15 +141,10 @@ export default function Other() {
   });
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
+    <LinearGradient colors={["#F8F5EC", "#EDE5D2"]} style={[s.root, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={s.header}>
-        <View style={s.headerLeft}>
-          <TouchableOpacity style={s.iconBtn} onPress={() => setMenuOpen(true)}>
-            <MaterialIcons name="menu" size={24} color={C.primary} />
-          </TouchableOpacity>
-          <Text style={s.headerTitle}>Grandma's Cookbook</Text>
-        </View>
+        <Text style={s.headerTitle}>The Family Cookbook</Text>
         <View style={s.avatar}>
           <Image
             source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuBwnsiky2TruhS7MEhrclqbeCFJanL4OM_l0QRtWgIO6F42B2DOJ55114i2cbxA_0W8tGPIbmAYU09LZPuuPsvFqoZC2NY0uZXbbO3zkQI51WNdlSpWg_kB525VJR5uvagYuVW3GVKuertEHD0D6jjB9J5h2au3lAy3qdPZ3S4KiVHuwzOmHrdzGoKO6SqdkWgWq4Rkn4aYTgLuFKgSMXThdHXPbL3wgO1P4HAtkgPsZ_OmxmarP4PfjWv7TDuBfLgVumDfCV-ImCQ" }}
@@ -163,26 +153,6 @@ export default function Other() {
         </View>
       </View>
 
-      {/* Dropdown Menu Modal */}
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={s.menuOverlay} onPress={() => setMenuOpen(false)}>
-          <View style={[s.menuSheet, { top: insets.top + 56 }]}>
-            {MENU_ITEMS.map((item) => (
-              <TouchableOpacity
-                key={item.route}
-                style={s.menuItem}
-                onPress={() => {
-                  setMenuOpen(false);
-                  router.push(item.route as any);
-                }}
-              >
-                <MaterialIcons name={item.icon} size={20} color={C.primary} />
-                <Text style={s.menuItemText}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
 
       {/* Countdown overlay */}
       <Modal visible={countdown !== null} transparent animationType="fade">
@@ -247,7 +217,7 @@ export default function Other() {
               activeOpacity={0.7}
               onPress={() => startCooking(recipe.id)}
             >
-              <Image source={{ uri: recipe.uri }} style={s.recipeImg} />
+              <Image source={recipe.source} style={s.recipeImg} resizeMode="cover" />
               <View style={s.recipeInfo}>
                 <Text style={s.recipeTitle}>{recipe.title}</Text>
                 <Text style={s.recipeMeta}>{recipe.meta}</Text>
@@ -260,7 +230,7 @@ export default function Other() {
                 <MaterialIcons
                   name={favorites.has(recipe.id) ? "favorite" : "favorite-border"}
                   size={22}
-                  color={favorites.has(recipe.id) ? C.primary : C.outlineVariant}
+                  color={favorites.has(recipe.id) ? C.accent : C.outlineVariant}
                 />
               </TouchableOpacity>
               <View style={s.startBtn}>
@@ -280,7 +250,7 @@ export default function Other() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -293,26 +263,10 @@ const s = StyleSheet.create({
     backgroundColor: C.surface,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.outlineVariant,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerTitle: { fontSize: 20, fontWeight: "700", color: C.onSurface, letterSpacing: -0.5 },
-  iconBtn: { padding: 8, borderRadius: 999 },
+  headerTitle: { fontSize: 28, fontFamily: "GreatVibes_400Regular", color: C.onSurface },
   avatar: { width: 32, height: 32, borderRadius: 16, overflow: "hidden", backgroundColor: C.surfaceContainerHigh },
   avatarImg: { width: "100%", height: "100%" },
 
-  menuOverlay: { flex: 1, backgroundColor: "rgba(34,26,15,0.3)" },
-  menuSheet: {
-    position: "absolute", left: 16,
-    backgroundColor: C.surfaceContainerLowest,
-    borderRadius: 14, overflow: "hidden", minWidth: 180,
-    shadowColor: "#221a0f", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
-  },
-  menuItem: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 18, paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.outlineVariant,
-  },
-  menuItemText: { fontSize: 15, fontWeight: "600", color: C.onSurface },
 
   scroll: { paddingHorizontal: 20 },
 
@@ -343,7 +297,7 @@ const s = StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 8,
     borderRadius: 14,
   },
-  recipeImg: { width: 76, height: 76, borderRadius: 12, backgroundColor: C.surfaceContainer, flexShrink: 0 },
+  recipeImg: { width: 76, height: 76, borderRadius: 12, backgroundColor: C.surfaceContainer, flexShrink: 0, overflow: "hidden" },
   recipeInfo: { flex: 1 },
   recipeTitle: { fontSize: 17, fontWeight: "700", color: C.onSurface, lineHeight: 22 },
   recipeMeta: { fontSize: 13, color: C.onSurfaceVariant, marginTop: 4 },
@@ -361,7 +315,7 @@ const s = StyleSheet.create({
   emptyText: { fontSize: 15, color: C.outline },
 
   countdownOverlay: {
-    flex: 1, backgroundColor: "rgba(34,26,15,0.85)",
+    flex: 1, backgroundColor: "rgba(28,33,16,0.85)",
     alignItems: "center", justifyContent: "center", gap: 16,
   },
   countdownNumber: {

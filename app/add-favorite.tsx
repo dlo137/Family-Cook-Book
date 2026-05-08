@@ -14,18 +14,19 @@ import { useRouter } from "expo-router";
 import { useFavorites } from "@/context/FavoritesContext";
 
 const C = {
-  primary: "#9c3f10",
-  surface: "#fff8f3",
-  surfaceContainer: "#fbecd9",
-  surfaceContainerLow: "#fff2e2",
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainerHigh: "#f5e6d3",
-  onSurface: "#221a0f",
-  onSurfaceVariant: "#56423a",
-  outlineVariant: "#ddc1b6",
-  secondaryContainer: "#fecb98",
-  outline: "#8a7269",
+  primary: "#556B2F",
+  surface: "#F6F3EA",
+  surfaceContainer: "#E8E0CE",
+  surfaceContainerLow: "#EDE7D9",
+  surfaceContainerLowest: "#FDFAF4",
+  surfaceContainerHigh: "#DDD4BE",
+  onSurface: "#3F3426",
+  onSurfaceVariant: "#5C4F3A",
+  outlineVariant: "#C8BFAB",
+  secondaryContainer: "#D4C89A",
+  outline: "#7A6E5A",
   onPrimary: "#ffffff",
+  accent: "#C97B63",
 };
 
 const FILTERS = ["All", "Mom", "Dad", "Grandma", "Sister"];
@@ -36,42 +37,42 @@ const ALL_RECIPES = [
     title: "Mom's Famous Lasagna",
     author: "Mom",
     meta: "45 min • 6 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
+    source: require("../assets/lasagna.png"),
   },
   {
     id: "2",
     title: "Grandma's Sunday Roast",
     author: "Grandma",
     meta: "120 min • 8 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
+    source: require("../assets/beefstew.jpg"),
   },
   {
     id: "3",
     title: "Dad's Summer Salad",
     author: "Dad",
     meta: "15 min • 2 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
+    source: require("../assets/salad1.avif"),
   },
   {
     id: "4",
     title: "Sister's Taco Night Special",
     author: "Sister",
     meta: "30 min • 4 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1bf1dMfvl-csxrk-CEyO0084IFm0C_Hh9GkZ3s2-FJkEKy_vCKJ6ap_aoLAoSbWp13soa3a2ejmVNQ60JFHE1qPdhqzeysKONmKRpOwvZhVOSbI3Ch70MHz8yqf5ZPNjhWVwIah-_KoMbgnJUuSRBwWqiRwikL40IVcYqYBKvV9G7VyMlBDIPEB5_TexZaB__qBXVdiMERrfl0lIPV1JqBlK538RAOapYEBe63aW0yBhODxI-MgQE4Jd-9sd53xguDlJ1WHjKd5c",
+    source: require("../assets/tacos.webp"),
   },
   {
     id: "5",
     title: "Weekend Fluffy Pancakes",
     author: "Mom",
     meta: "25 min • 4 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDgRl31faxhk8MrSS85YhPicd12q2ks6PeGTxS43mNIA5RKTDBMmZ3IvkyDkBeP0ExQfTZ6FdrJB7lXkzK8pyQEDhISwXZsjMmq3cb8wQQSmT_XZvRZ1TqqBWZ-0DlKIUhQJ6bsmW16Tm_9GSHxRIX-1QIC6TluFRMALwVcCMt1A5dxdh5f9kf1Y1yGLVGddtTFGMMX3x186zhf1bPyRD6wTTzz6ebdhTAU5o1V-TOVYnXH6Jt1qg4l6Ylt4yNFBCDn-Iw4k0RmCNk",
+    source: require("../assets/pancakes.webp"),
   },
   {
     id: "6",
     title: "Classic Caesar Salad",
     author: "Mom",
     meta: "20 min • 4 servings",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuDJWGILVw2jt-7FnWQ9u6-C9VT1C0lgQJBx3W6L5b0v5KQj7TgDqnsfezwV0TM-mZIWWxrA3H_6TWnIOleNVoqz18Sr3deDv3Hx8lvh3pxUtDJMLry420v0WRT4AlMOEv5uWbe5s-zPGfjFX1-Do8SY69LAmXF0Nuovbh4CKekdafSmOY0XihNKSeCULjv6OTHefjqwcXRmDpkNA1HRsUwPQWim0UkAUGivUaMbc8Q0eK6o9Qkk5vGaJelwTBPW8zb0zNuepg0Y0Ms",
+    source: require("../assets/salad1.avif"),
   },
 ];
 
@@ -113,7 +114,7 @@ export default function AddFavorite() {
             if (selected.size === 0) return;
             const toAdd = ALL_RECIPES
               .filter((r) => selected.has(r.id))
-              .map((r) => ({ id: r.id, title: r.title, uri: r.uri }));
+              .map((r) => ({ id: r.id, title: r.title, source: r.source }));
             addFavorites(toAdd);
             router.back();
           }}
@@ -181,7 +182,7 @@ export default function AddFavorite() {
               activeOpacity={0.75}
             >
               <View style={s.imgWrap}>
-                <Image source={{ uri: recipe.uri }} style={s.recipeImg} />
+                <Image source={recipe.source} style={s.recipeImg} resizeMode="cover" />
                 {isSelected && (
                   <View style={s.imgOverlay}>
                     <MaterialIcons name="check-circle" size={28} color={C.onPrimary} />
@@ -267,7 +268,7 @@ const s = StyleSheet.create({
   recipeImg: { width: 72, height: 72, borderRadius: 12, backgroundColor: C.surfaceContainer },
   imgOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(156,63,16,0.55)",
+    backgroundColor: "rgba(77,106,40,0.55)",
     borderRadius: 12,
     alignItems: "center", justifyContent: "center",
   },

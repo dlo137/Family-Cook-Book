@@ -15,21 +15,22 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Audio } from "expo-av";
 
 const C = {
-  primary: "#9c3f10",
-  surface: "#fff8f3",
-  surfaceContainer: "#fbecd9",
-  surfaceContainerLow: "#fff2e2",
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainerHighest: "#efe0cd",
-  onSurface: "#221a0f",
-  onSurfaceVariant: "#56423a",
-  onTertiaryFixedVariant: "#5e4030",
-  outlineVariant: "#ddc1b6",
-  secondaryContainer: "#fecb98",
-  primaryContainer: "#bc5627",
-  outline: "#8a7269",
+  primary: "#556B2F",
+  surface: "#F6F3EA",
+  surfaceContainer: "#E8E0CE",
+  surfaceContainerLow: "#EDE7D9",
+  surfaceContainerLowest: "#FDFAF4",
+  surfaceContainerHighest: "#D3C9AE",
+  onSurface: "#3F3426",
+  onSurfaceVariant: "#5C4F3A",
+  onTertiaryFixedVariant: "#4A5228",
+  outlineVariant: "#C8BFAB",
+  secondaryContainer: "#D4C89A",
+  primaryContainer: "#6B8040",
+  outline: "#7A6E5A",
   onPrimary: "#ffffff",
-  tertiary: "#765443",
+  tertiary: "#556B2F",
+  accent: "#C97B63",
 };
 
 const RECIPES: Record<string, {
@@ -652,7 +653,7 @@ const s = StyleSheet.create({
   instructionCard: {
     backgroundColor: C.surfaceContainerLowest,
     borderRadius: 20, padding: 28, marginBottom: 16,
-    shadowColor: "#221a0f", shadowOffset: { width: 0, height: 2 },
+    shadowColor: "#1C2110", shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.outlineVariant,
   },
@@ -688,7 +689,7 @@ const s = StyleSheet.create({
   timerCancelText: { fontSize: 13, fontWeight: "600", color: C.primary },
 
   timerModalOverlay: {
-    flex: 1, backgroundColor: "rgba(34,26,15,0.5)",
+    flex: 1, backgroundColor: "rgba(28,33,16,0.5)",
     justifyContent: "flex-end",
   },
   timerModalSheet: {
@@ -711,7 +712,7 @@ const s = StyleSheet.create({
   timerModalCancelText: { fontSize: 15, fontWeight: "600", color: C.primary },
 
   tipCard: {
-    backgroundColor: "#ffdbca", borderRadius: 16, padding: 18, marginBottom: 8,
+    backgroundColor: "#DEE8B4", borderRadius: 16, padding: 18, marginBottom: 8,
   },
   tipTitle: { fontSize: 16, fontWeight: "700", fontStyle: "italic", color: C.onSurface, marginBottom: 6 },
   tipText: { fontSize: 15, fontStyle: "italic", color: C.onTertiaryFixedVariant, lineHeight: 22 },
@@ -741,7 +742,7 @@ const s = StyleSheet.create({
   },
   doneTitle: { fontSize: 40, fontWeight: "800", fontStyle: "italic", color: C.onSurface, marginBottom: 12 },
   doneSubtitle: { fontSize: 17, color: C.onSurfaceVariant, textAlign: "center", lineHeight: 26, marginBottom: 28 },
-  doneTip: { backgroundColor: "#ffdbca", borderRadius: 16, padding: 18 },
+  doneTip: { backgroundColor: "#DEE8B4", borderRadius: 16, padding: 18 },
   doneTipText: { fontSize: 16, fontStyle: "italic", color: C.onTertiaryFixedVariant, textAlign: "center" },
   doneActions: { paddingHorizontal: 24, gap: 10 },
   doneBackBtn: {

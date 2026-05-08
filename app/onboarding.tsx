@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -16,14 +16,15 @@ import { useRouter } from 'expo-router';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const C = {
-  primary: '#9c3f10',
-  surface: '#fff8f3',
-  surfaceContainerLow: '#fff2e2',
-  secondaryContainer: '#fecb98',
-  onSurface: '#221a0f',
-  onSurfaceVariant: '#56423a',
-  outline: '#8a7269',
+  primary: '#556B2F',
+  surface: '#F6F3EA',
+  surfaceContainerLow: '#EDE7D9',
+  secondaryContainer: '#D4C89A',
+  onSurface: '#3F3426',
+  onSurfaceVariant: '#5C4F3A',
+  outline: '#7A6E5A',
   onPrimary: '#ffffff',
+  accent: '#C97B63',
 };
 
 const SLIDES = [
@@ -47,10 +48,32 @@ const SLIDES = [
   },
 ];
 
+
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { createProfile } from '@/services/ProfileService';
+
 export default function Onboarding() {
   const router = useRouter();
   const listRef = useRef<FlatList>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const anonSignInFired = useRef(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Fire anonymous sign-in when reaching slide 3 (index 2), only once
+    if (activeIndex === 2 && !anonSignInFired.current && !user) {
+      anonSignInFired.current = true;
+      const email = `anon_${Date.now()}@anon.com`;
+      const password = Math.random().toString(36).slice(2);
+      supabase.auth.signUp({ email, password })
+        .then(async ({ data, error }) => {
+          if (data?.user) {
+            await createProfile(data.user.id, email);
+          }
+        });
+    }
+  }, [activeIndex, user]);
 
   function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
@@ -124,7 +147,7 @@ const s = StyleSheet.create({
     width: 140, height: 140, borderRadius: 70,
     backgroundColor: C.surfaceContainerLow,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.secondaryContainer,
+    borderWidth: 2, borderColor: C.secondaryContainer,
   },
 
   headline: {
@@ -141,7 +164,7 @@ const s = StyleSheet.create({
   bottom: { paddingHorizontal: 32, paddingBottom: 24, gap: 16, alignItems: 'center' },
 
   dots: { flexDirection: 'row', gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ddc1b6' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#BAC898' },
   dotActive: { width: 24, borderRadius: 4, backgroundColor: C.primary },
 
   button: {

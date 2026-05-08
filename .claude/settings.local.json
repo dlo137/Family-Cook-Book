@@ -18,7 +18,10 @@
       "Bash(node:*)",
       "Bash(npm list:*)",
       "Bash(eas build:configure:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\aidaw\\\\Desktop\\\\Code\\\\Grandmas_Cookbook\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
     ]
   }
 }

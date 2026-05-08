@@ -120,12 +120,12 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 32, backgroundColor: "#f8fafc" },
-  title: { fontSize: 28, fontWeight: "700", marginBottom: 8, textAlign: "center" },
-  subtitle: { fontSize: 15, color: "#666", textAlign: "center", marginBottom: 32 },
+  container: { flex: 1, justifyContent: "center", padding: 32, backgroundColor: "#F5F7EE" },
+  title: { fontSize: 28, fontWeight: "700", marginBottom: 8, textAlign: "center", color: "#1C2110" },
+  subtitle: { fontSize: 15, color: "#404E25", textAlign: "center", marginBottom: 32 },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#C8D4A0",
     borderRadius: 10,
     padding: 14,
     fontSize: 16,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   error: { color: "#e74c3c", fontSize: 14, marginBottom: 12, textAlign: "center" },
   button: {
-    backgroundColor: "#6366f1",
+    backgroundColor: "#4D6A28",
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
@@ -142,8 +142,8 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#fff", fontSize: 17, fontWeight: "700" },
   divider: { flexDirection: "row", alignItems: "center", marginVertical: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: "#e0e0e0" },
-  dividerText: { marginHorizontal: 12, color: "#999", fontSize: 14 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#C8D4A0" },
+  dividerText: { marginHorizontal: 12, color: "#6D7B4C", fontSize: 14 },
   appleButton: { width: "100%", height: 56, marginTop: 12 },
-  link: { color: "#6366f1", fontSize: 15, textAlign: "center", marginTop: 20 },
+  link: { color: "#4D6A28", fontSize: 15, textAlign: "center", marginTop: 20 },
 });

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -18,6 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 // Run: npx expo install expo-image-picker
 
@@ -26,20 +28,21 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 const C = {
-  primary: "#9c3f10",
-  surface: "#fff8f3",
-  surfaceContainer: "#fbecd9",
-  surfaceContainerLow: "#fff2e2",
-  surfaceContainerHigh: "#f5e6d3",
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainerHighest: "#efe0cd",
-  onSurface: "#221a0f",
-  onSurfaceVariant: "#56423a",
-  onTertiaryFixedVariant: "#5e4030",
-  outlineVariant: "#ddc1b6",
-  secondaryContainer: "#fecb98",
-  tertiaryFixed: "#ffdbca",
-  outline: "#8a7269",
+  primary: "#556B2F",
+  surface: "#F6F3EA",
+  surfaceContainer: "#E8E0CE",
+  surfaceContainerLow: "#EDE7D9",
+  surfaceContainerHigh: "#DDD4BE",
+  surfaceContainerLowest: "#FDFAF4",
+  surfaceContainerHighest: "#D3C9AE",
+  onSurface: "#3F3426",
+  onSurfaceVariant: "#5C4F3A",
+  onTertiaryFixedVariant: "#4A5228",
+  outlineVariant: "#C8BFAB",
+  secondaryContainer: "#D4C89A",
+  tertiaryFixed: "#E8DFC2",
+  outline: "#7A6E5A",
+  accent: "#C97B63",
   onPrimary: "#ffffff",
 };
 
@@ -60,12 +63,25 @@ const uid = () => String(++_id);
 export default function AddRecipe() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("family_role")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.family_role) setAuthor(data.family_role);
+      });
+  }, [user?.id]);
   const [prepTime, setPrepTime] = useState("");
   const [cookTime, setCookTime] = useState("");
   const [servings, setServings] = useState("");
@@ -223,10 +239,10 @@ export default function AddRecipe() {
           <View style={s.authorRow}>
             <Text style={s.authorPrefix}>By</Text>
             <TextInput
-              style={s.authorInput}
+              style={[s.authorInput, s.authorInputLocked]}
               value={author}
-              onChangeText={setAuthor}
-              placeholder="Family member"
+              editable={false}
+              placeholder="Set your family role in Profile"
               placeholderTextColor={C.outline}
             />
           </View>
@@ -378,14 +394,14 @@ const s = StyleSheet.create({
   photoArea: {
     height: 180, borderRadius: 16,
     backgroundColor: C.surfaceContainerLow,
-    borderWidth: 1.5, borderStyle: "dashed", borderColor: C.outlineVariant,
+    borderWidth: 1, borderColor: C.outlineVariant,
     alignItems: "center", justifyContent: "center", gap: 8,
     marginBottom: 16, overflow: "hidden",
   },
   photoPreview: { width: "100%", height: "100%", borderRadius: 16 },
   photoLabel: { fontSize: 14, color: C.outline, fontWeight: "500" },
 
-  photoModalOverlay: { flex: 1, backgroundColor: "rgba(34,26,15,0.5)", justifyContent: "flex-end" },
+  photoModalOverlay: { flex: 1, backgroundColor: "rgba(28,33,16,0.5)", justifyContent: "flex-end" },
   photoModalSheet: {
     backgroundColor: C.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: 40,
@@ -412,7 +428,7 @@ const s = StyleSheet.create({
   photoTemplateItem: { width: "30%", aspectRatio: 1, borderRadius: 12, overflow: "hidden" },
   photoTemplateImg: { width: "100%", height: "100%" },
   photoTemplateCheck: {
-    ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(156,63,16,0.45)",
+    ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(77,106,40,0.45)",
     alignItems: "center", justifyContent: "center",
   },
 
@@ -426,6 +442,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: C.outlineVariant,
     paddingVertical: 4,
   },
+  authorInputLocked: { opacity: 0.7 },
 
   metaRow: {
     flexDirection: "row", alignItems: "center",
@@ -457,7 +474,7 @@ const s = StyleSheet.create({
   addRowBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     paddingVertical: 12,
-    borderWidth: 1.5, borderStyle: "dashed", borderColor: C.outlineVariant,
+    backgroundColor: C.surfaceContainerLow,
     borderRadius: 12, marginTop: 4,
   },
   addRowText: { fontSize: 13, fontWeight: "600", color: C.primary },
@@ -466,7 +483,7 @@ const s = StyleSheet.create({
     backgroundColor: C.surfaceContainerLowest, borderRadius: 14,
     padding: 14, marginBottom: 10,
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.outlineVariant,
-    shadowColor: "#221a0f", shadowOffset: { width: 0, height: 1 },
+    shadowColor: "#1C2110", shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   stepRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },

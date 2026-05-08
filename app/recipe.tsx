@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -10,28 +10,31 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const C = {
-  primary: "#9c3f10",
-  surface: "#fff8f3",
-  surfaceContainer: "#fbecd9",
-  surfaceContainerLow: "#fff2e2",
-  surfaceContainerLowest: "#ffffff",
-  onSurface: "#221a0f",
-  onSurfaceVariant: "#56423a",
-  onTertiaryFixedVariant: "#5e4030",
-  outlineVariant: "#ddc1b6",
-  secondaryContainer: "#fecb98",
-  onSecondaryContainer: "#79542b",
-  tertiaryFixed: "#ffdbca",
-  outline: "#8a7269",
+  primary: "#556B2F",
+  surface: "#F6F3EA",
+  surfaceContainer: "#E8E0CE",
+  surfaceContainerLow: "#EDE7D9",
+  surfaceContainerLowest: "#FDFAF4",
+  onSurface: "#3F3426",
+  onSurfaceVariant: "#5C4F3A",
+  onTertiaryFixedVariant: "#4A5228",
+  outlineVariant: "#C8BFAB",
+  secondaryContainer: "#D4C89A",
+  onSecondaryContainer: "#3B3020",
+  tertiaryFixed: "#E8DFC2",
+  outline: "#7A6E5A",
   onPrimary: "#ffffff",
+  accent: "#C97B63",
 };
 
 const RECIPES: Record<string, {
   title: string;
   by: string;
-  uri: string;
+  source: number;
   prep: string;
   cook: string;
   servings: string;
@@ -42,7 +45,7 @@ const RECIPES: Record<string, {
   "1": {
     title: "Mom's Famous Lasagna",
     by: "Mom",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAO8ipVd-NjkI1sLd1AUipGb-h3IGrifhUmTjZwuJ7FwJuluzpdAWx6LjzZ0pqLGLezcBY8FpsuiT0hwZf4VhnVQfwnAQIsYj2T0cARpMkQlL6aYAJr0Zc-RgVmzywNNXg8BVcDqsjknyAZMq8R43rRonYW3ihsSQve2oJvOll74XLpQe0G8i7msW6S04K2ps7UXKMrBCl-M96rKMSMkp65otZ9CzgitnQCmOEOPpIdP_RR4siowIUl-Ye5eSWdk9rEmRxyJ_gZ2cw",
+    source: require("../assets/lasagna.png"),
     prep: "20 min",
     cook: "45 min",
     servings: "6",
@@ -71,7 +74,7 @@ const RECIPES: Record<string, {
   "2": {
     title: "Grandma's Sunday Roast",
     by: "Grandma",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuB4abNG-ERepXH6UGnPiI5BacVRg6Au_4089QusGsq7J_f74ruFdp6xMy2pbnePZ2MBi8h95DPu1gT3kPvfILfBOUjW0QhqkEWodS3W-1OtcixHV0w-cJDFINZlpDsFopMk61rTpcGQKt4jv58o-o2O1Do5a3SpEWo0Tgu05CEEyDVkoVkfrcgn2Ui2KjBMy0Ya1naRZZqyXs2ie7ljnWIE3RG2rpIHnf4mhsGOt4tXFHUQyW9COGWHJO9yUrBAFCD7erxzyIja1wI",
+    source: require("../assets/beefstew.jpg"),
     prep: "20 min",
     cook: "3 hrs",
     servings: "8",
@@ -99,7 +102,7 @@ const RECIPES: Record<string, {
   "3": {
     title: "Dad's Summer Salad",
     by: "Dad",
-    uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuAWNQm6sb5mR3QNMk9rHmmVmsfr86qCSrKdCMUPwGhpkTMBwla45Kw0-uw1Qku0IQRxwb9kGxctKd_jWYCkvRjlLERd6QM8iOyLVUuYQcsuLTQZPsAAUYN3I6DATB58eInmdhhA-ci7IVJLSEWgxTUezQasQuqx-TEu5awfDOBgBxaXtQkbdA3g62RykDRcUofwGTOl3yD0L31Qnc8yuYzkD898Wljktpy992awVHadWl8uUUHUQLb7iDiP8c-MIETcV0l6ZpaBJt8",
+    source: require("../assets/salad1.avif"),
     prep: "15 min",
     cook: "0 min",
     servings: "2",
@@ -129,10 +132,24 @@ const RECIPES: Record<string, {
 export default function Recipe() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
   const recipe = RECIPES[id ?? "1"] ?? RECIPES["1"];
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [favorited, setFavorited] = useState(false);
+  const [familyRole, setFamilyRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("family_role")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => setFamilyRole(data?.family_role ?? null));
+  }, [user?.id]);
+
+  const canEdit = !!familyRole && recipe.by.toLowerCase() === familyRole.toLowerCase();
 
   const toggleCheck = (id: string) =>
     setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -153,7 +170,7 @@ export default function Recipe() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         {/* Hero */}
         <View style={s.heroWrap}>
-          <Image source={{ uri: recipe.uri }} style={s.heroImg} />
+          <Image source={recipe.source} style={s.heroImg} resizeMode="cover" />
           <View style={s.heroGradient} />
           <View style={s.heroBadge}>
             <Text style={s.heroBadgeText}>By {recipe.by}</Text>
@@ -182,10 +199,12 @@ export default function Recipe() {
         {/* Actions */}
         <View style={s.actionRow}>
           <View style={s.actionLeft}>
-            <TouchableOpacity style={s.btnSecondary} onPress={() => router.push("/add-recipe")}>
-              <MaterialIcons name="edit" size={18} color={C.onSecondaryContainer} />
-              <Text style={s.btnSecondaryText}>Edit</Text>
-            </TouchableOpacity>
+            {canEdit && (
+              <TouchableOpacity style={s.btnSecondary} onPress={() => router.push("/add-recipe")}>
+                <MaterialIcons name="edit" size={18} color={C.onSecondaryContainer} />
+                <Text style={s.btnSecondaryText}>Edit</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[s.btnOutline, favorited && s.btnOutlineActive]}
               onPress={() => setFavorited((f) => !f)}
@@ -198,16 +217,18 @@ export default function Recipe() {
               <Text style={s.btnOutlineText}>Favorite</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={s.deleteBtn}>
-            <MaterialIcons name="delete-outline" size={24} color={C.outlineVariant} />
-          </TouchableOpacity>
+          {canEdit && (
+            <TouchableOpacity style={s.deleteBtn}>
+              <MaterialIcons name="delete-outline" size={24} color={C.outlineVariant} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Ingredients */}
         <View style={s.section}>
           <View style={s.sectionHeader}>
             <Text style={s.sectionTitle}>Ingredients</Text>
-            <Text style={s.editableLabel}>EDITABLE</Text>
+            {canEdit && <Text style={s.editableLabel}>EDITABLE</Text>}
           </View>
           {recipe.ingredients.map((ing) => (
             <TouchableOpacity
@@ -226,10 +247,12 @@ export default function Recipe() {
               </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity style={s.addDashedBtn}>
-            <MaterialIcons name="add" size={20} color={C.onSurfaceVariant} />
-            <Text style={s.addDashedText}>Add Ingredient</Text>
-          </TouchableOpacity>
+          {canEdit && (
+            <TouchableOpacity style={s.addDashedBtn}>
+              <MaterialIcons name="add" size={20} color={C.onSurfaceVariant} />
+              <Text style={s.addDashedText}>Add Ingredient</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Grandma's Tip */}
@@ -253,10 +276,12 @@ export default function Recipe() {
               </View>
             </View>
           ))}
-          <TouchableOpacity style={[s.addDashedBtn, s.addStepBtn]}>
-            <MaterialIcons name="playlist-add" size={24} color={C.onSurfaceVariant} />
-            <Text style={s.addDashedText}>Add Step</Text>
-          </TouchableOpacity>
+          {canEdit && (
+            <TouchableOpacity style={[s.addDashedBtn, s.addStepBtn]}>
+              <MaterialIcons name="playlist-add" size={24} color={C.onSurfaceVariant} />
+              <Text style={s.addDashedText}>Add Step</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={{ height: 32 }} />
@@ -304,7 +329,7 @@ const s = StyleSheet.create({
   btnSecondaryText: { fontSize: 13, fontWeight: "700", color: C.onSecondaryContainer },
   btnOutline: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#f5e6d3",
+    backgroundColor: "#D3D9B0",
     paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999,
   },
   btnOutlineActive: { backgroundColor: C.secondaryContainer },
@@ -327,7 +352,8 @@ const s = StyleSheet.create({
   addDashedBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
     paddingVertical: 14, marginTop: 4,
-    borderWidth: 1.5, borderStyle: "dashed", borderColor: C.outlineVariant, borderRadius: 12,
+    backgroundColor: C.surfaceContainerLow,
+    borderRadius: 12,
   },
   addDashedText: { fontSize: 14, fontWeight: "500", color: C.onSurfaceVariant },
   addStepBtn: { paddingVertical: 20, marginTop: 8 },

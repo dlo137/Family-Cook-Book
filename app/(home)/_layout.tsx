@@ -1,16 +1,16 @@
 import { Tabs } from "expo-router";
-import { MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function HomeLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#9c3f10",
-        tabBarInactiveTintColor: "#5e4030",
+        tabBarActiveTintColor: "#556B2F",
+        tabBarInactiveTintColor: "#7A6E5A",
         tabBarStyle: {
-          backgroundColor: "#fff8f3",
-          borderTopColor: "#ddc1b6",
+          backgroundColor: "#F6F3EA",
+          borderTopColor: "#C8BFAB",
           height: 64,
         },
         tabBarActiveBackgroundColor: "transparent",
@@ -23,7 +23,7 @@ export default function HomeLayout() {
         name="home"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons name="home" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
+            <MaterialIcons name="home" size={26} color={focused ? "#4D6A28" : "#6D7B4C"} />
           ),
         }}
       />
@@ -31,7 +31,7 @@ export default function HomeLayout() {
         name="cook"
         options={{
           tabBarIcon: ({ focused }) => (
-            <MaterialIcons name="search" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
+            <MaterialCommunityIcons name="pot-steam" size={26} color={focused ? "#4D6A28" : "#6D7B4C"} />
           ),
         }}
       />
@@ -39,7 +39,7 @@ export default function HomeLayout() {
         name="profile"
         options={{
           tabBarIcon: ({ focused }) => (
-            <MaterialIcons name="menu-book" size={26} color={focused ? "#9c3f10" : "#5e4030"} />
+            <MaterialIcons name="person" size={26} color={focused ? "#4D6A28" : "#6D7B4C"} />
           ),
         }}
       />

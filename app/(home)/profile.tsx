@@ -6,30 +6,37 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
   Modal,
   Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { createFamilyPlan } from '@/services/familyPlanService';
+import type { FamilyMembership, FamilyPlan } from '@/types/familyPlan';
 
 const C = {
-  bg: '#fff8f3',
-  surface: '#ffffff',
-  surfaceSecondary: '#fff2e2',
-  surfaceContainer: '#fbecd9',
-  text: '#221a0f',
-  textSecondary: '#56423a',
-  textMuted: '#8a7269',
-  primary: '#9c3f10',
-  primaryLight: '#fecb98',
-  border: '#ddc1b6',
+  bg: '#F6F3EA',
+  surface: '#FDFAF4',
+  surfaceSecondary: '#EDE7D9',
+  surfaceContainer: '#E8E0CE',
+  text: '#3F3426',
+  textSecondary: '#5C4F3A',
+  textMuted: '#7A6E5A',
+  primary: '#556B2F',
+  primaryLight: '#D4C89A',
+  border: '#C8BFAB',
   error: '#ba1a1a',
   errorBg: '#ffdad6',
   success: '#16A34A',
   successBg: '#DCFCE7',
+  accent: '#C97B63',
 };
 
 export default function ProfileScreen() {
@@ -42,6 +49,20 @@ export default function ProfileScreen() {
   const [generationsCount, setGenerationsCount] = useState(0);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
+
+  // Family plan state
+  const [familyPlan, setFamilyPlan] = useState<FamilyPlan | null>(null);
+  const [familyMembership, setFamilyMembership] = useState<FamilyMembership | null>(null);
+  const [familyMemberCount, setFamilyMemberCount] = useState(0);
+  const [familyLoading, setFamilyLoading] = useState(true);
+  const [familyError, setFamilyError] = useState<string | null>(null);
+  const [creatingPlan, setCreatingPlan] = useState(false);
+
+  // Edit profile modal
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -61,6 +82,63 @@ export default function ProfileScreen() {
       });
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!user) { setFamilyLoading(false); return; }
+
+    async function loadFamilyPlan() {
+      setFamilyLoading(true);
+      setFamilyError(null);
+      try {
+        // Look up the user's membership
+        const { data: membership, error: membershipError } = await supabase
+          .from('family_memberships')
+          .select('*')
+          .eq('user_id', user!.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (membershipError) throw new Error(membershipError.message);
+        if (!membership) { setFamilyLoading(false); return; }
+
+        setFamilyMembership(membership as FamilyMembership);
+
+        // Load the plan and member count in parallel
+        const [planResult, countResult] = await Promise.all([
+          supabase.from('family_plans').select('*').eq('id', membership.plan_id).single(),
+          supabase.from('family_memberships').select('id', { count: 'exact', head: true }).eq('plan_id', membership.plan_id),
+        ]);
+
+        if (planResult.data) setFamilyPlan(planResult.data as FamilyPlan);
+        if (countResult.count !== null) setFamilyMemberCount(countResult.count);
+      } catch (e: any) {
+        setFamilyError(e.message ?? 'Failed to load family plan.');
+      } finally {
+        setFamilyLoading(false);
+      }
+    }
+
+    loadFamilyPlan();
+  }, [user?.id]);
+
+  async function handleCreatePlan() {
+    if (!user) return;
+    setCreatingPlan(true);
+    setFamilyError(null);
+    try {
+      const plan = await createFamilyPlan(
+        user.id,
+        user.email?.split('@')[0] ?? 'Owner'
+      );
+      setFamilyPlan(plan);
+      setFamilyMemberCount(1);
+      router.push({ pathname: '/(app)/family/invite', params: { planId: plan.id } } as any);
+    } catch (e: any) {
+      setFamilyError(e.message ?? 'Failed to create plan.');
+    } finally {
+      setCreatingPlan(false);
+    }
+  }
+
   const planLabel = isPro
     ? subscriptionPlan?.includes('Weekly')
       ? 'Weekly Pro'
@@ -71,9 +149,54 @@ export default function ProfileScreen() {
 
   const displayName = isAnonymous
     ? (user?.user_metadata?.display_name ?? 'Guest')
-    : (user?.email?.split('@')[0] ?? 'User');
+    : (user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? 'User');
   const email = isAnonymous ? 'Anonymous Account' : (user?.email ?? '');
   const initials = displayName.charAt(0).toUpperCase();
+
+  function openEdit() {
+    setEditName(displayName);
+    setEditEmail(email);
+    setEditOpen(true);
+  }
+
+  async function handleSaveProfile() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const newName = editName.trim();
+      const newEmail = editEmail.trim();
+      const nameChanged = newName && newName !== displayName;
+      const emailChanged = newEmail && newEmail !== email;
+
+      if (!nameChanged && !emailChanged) {
+        setEditOpen(false);
+        return;
+      }
+
+      const authUpdates: { data?: { display_name: string }; email?: string } = {};
+      if (nameChanged) authUpdates.data = { display_name: newName };
+      if (emailChanged) authUpdates.email = newEmail;
+
+      const { error } = await supabase.auth.updateUser(authUpdates);
+      if (error) throw error;
+
+      if (nameChanged) {
+        await Promise.all([
+          supabase.from('profiles').update({ display_name: newName }).eq('id', user.id),
+          supabase.from('family_memberships').update({ display_name: newName }).eq('user_id', user.id),
+        ]);
+      }
+
+      setEditOpen(false);
+      if (emailChanged) {
+        Alert.alert('Check your email', 'A confirmation link was sent to your new email address.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function handleSignOut() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -125,12 +248,61 @@ export default function ProfileScreen() {
       >
         {/* USER INFO */}
         <View style={s.card}>
+          <TouchableOpacity style={s.editIcon} onPress={openEdit} activeOpacity={0.7} hitSlop={8}>
+            <MaterialIcons name="edit" size={18} color={C.textMuted} />
+          </TouchableOpacity>
           <View style={s.avatarCircle}>
             <Text style={s.avatarText}>{initials}</Text>
           </View>
           <Text style={s.displayName}>{displayName}</Text>
           <Text style={s.email}>{email}</Text>
         </View>
+
+        {/* EDIT PROFILE MODAL */}
+        <Modal visible={editOpen} transparent animationType="slide" onRequestClose={() => setEditOpen(false)}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <Pressable style={s.roleModalOverlay} onPress={() => setEditOpen(false)}>
+              <Pressable style={s.roleModalSheet} onPress={() => {}}>
+                <View style={s.roleModalHandle} />
+                <Text style={s.roleModalTitle}>Edit Profile</Text>
+
+                <Text style={s.inputLabel}>Display Name</Text>
+                <TextInput
+                  style={s.editInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your name"
+                  placeholderTextColor={C.textMuted}
+                  autoCapitalize="words"
+                />
+
+                <Text style={s.inputLabel}>Email</Text>
+                <TextInput
+                  style={s.editInput}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={C.textMuted}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+
+                <TouchableOpacity
+                  style={[s.familyPrimaryBtn, saving && s.familyPrimaryBtnDisabled]}
+                  onPress={handleSaveProfile}
+                  disabled={saving}
+                  activeOpacity={0.8}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={s.familyPrimaryBtnText}>Save Changes</Text>
+                  )}
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Modal>
 
         {/* PLAN CARD */}
         <View style={s.card}>
@@ -211,6 +383,79 @@ export default function ProfileScreen() {
           </Pressable>
         </Modal>
 
+        {/* FAMILY PLAN */}
+        <View style={s.card}>
+          <Text style={s.sectionLabel}>Family Plan</Text>
+
+          {familyLoading ? (
+            <ActivityIndicator color={C.primary} style={{ marginVertical: 8 }} />
+          ) : familyError ? (
+            <Text style={s.familyErrorText}>{familyError}</Text>
+          ) : !familyPlan ? (
+            <>
+              <Text style={s.familyEmptyText}>
+                Create a plan to share recipes with your family. Up to 6 members can join under one subscription.
+              </Text>
+              <TouchableOpacity
+                style={[s.familyPrimaryBtn, creatingPlan && s.familyPrimaryBtnDisabled]}
+                onPress={handleCreatePlan}
+                disabled={creatingPlan}
+                activeOpacity={0.8}
+              >
+                {creatingPlan ? (
+                  <ActivityIndicator color='#fff' />
+                ) : (
+                  <>
+                    <MaterialIcons name='group-add' size={18} color='#fff' />
+                    <Text style={s.familyPrimaryBtnText}>Create Family Plan</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={s.familyStatusRow}>
+                <View style={s.familyStatusItem}>
+                  <Text style={s.familyStatusValue}>{familyMemberCount}</Text>
+                  <Text style={s.familyStatusLabel}>Members</Text>
+                </View>
+                <View style={s.familyStatusDivider} />
+                <View style={s.familyStatusItem}>
+                  <Text style={s.familyStatusValue}>{familyPlan.max_members}</Text>
+                  <Text style={s.familyStatusLabel}>Max Seats</Text>
+                </View>
+                <View style={s.familyStatusDivider} />
+                <View style={s.familyStatusItem}>
+                  <Text style={[s.familyStatusValue, { textTransform: 'capitalize', fontSize: 14 }]}>
+                    {familyMembership?.role ?? '—'}
+                  </Text>
+                  <Text style={s.familyStatusLabel}>Your Role</Text>
+                </View>
+              </View>
+
+              {familyMembership?.role === 'owner' && (
+                <TouchableOpacity
+                  style={s.familyPrimaryBtn}
+                  onPress={() => router.push({ pathname: '/(app)/family/invite', params: { planId: familyPlan.id } } as any)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name='people' size={18} color='#fff' />
+                  <Text style={s.familyPrimaryBtnText}>Manage Members</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={s.familySecondaryBtn}
+                onPress={() => router.push({ pathname: '/(app)/family/invite', params: { planId: familyPlan.id } } as any)}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name='visibility' size={16} color={C.primary} />
+                <Text style={s.familySecondaryBtnText}>View Family</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
         {/* SETTINGS */}
         <View style={s.card}>
           <Text style={s.sectionLabel}>Account</Text>
@@ -238,7 +483,7 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <Text style={s.version}>Grandma's Cookbook · v1.0.0</Text>
+        <Text style={s.version}>Family Cookbook · v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -283,7 +528,7 @@ const s = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: C.border,
-    shadowColor: '#221a0f',
+    shadowColor: '#1C2110',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -292,6 +537,15 @@ const s = StyleSheet.create({
   sectionLabel: {
     fontSize: 11, fontWeight: '700', color: C.textMuted,
     textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2,
+  },
+
+  editIcon: { position: 'absolute', top: 16, right: 16 },
+  inputLabel: { fontSize: 12, fontWeight: '700', color: C.textMuted, letterSpacing: 0.5, marginBottom: 6, textTransform: 'uppercase' },
+  editInput: {
+    backgroundColor: C.surfaceSecondary, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 13,
+    fontSize: 16, color: C.text, marginBottom: 16,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: C.border,
   },
 
   avatarCircle: {
@@ -332,11 +586,36 @@ const s = StyleSheet.create({
 
   version: { textAlign: 'center', fontSize: 12, color: C.textMuted, marginTop: 4 },
 
+  // Family plan card
+  familyEmptyText: { fontSize: 13, color: C.textMuted, lineHeight: 19 },
+  familyErrorText: { fontSize: 13, color: C.error },
+  familyStatusRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.surfaceSecondary, borderRadius: 14, padding: 14,
+  },
+  familyStatusItem: { flex: 1, alignItems: 'center', gap: 2 },
+  familyStatusDivider: { width: 1, height: 32, backgroundColor: C.border },
+  familyStatusValue: { fontSize: 22, fontWeight: '800', color: C.text },
+  familyStatusLabel: { fontSize: 11, color: C.textSecondary, fontWeight: '500' },
+  familyPrimaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: C.primary, borderRadius: 999,
+    paddingVertical: 13,
+  },
+  familyPrimaryBtnDisabled: { opacity: 0.5 },
+  familyPrimaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  familySecondaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: C.primary, borderRadius: 999,
+    paddingVertical: 11,
+  },
+  familySecondaryBtnText: { color: C.primary, fontSize: 14, fontWeight: '600' },
+
   roleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   roleValue: { fontSize: 15, color: C.textSecondary },
   roleValueBold: { fontWeight: '700', color: C.text },
 
-  roleModalOverlay: { flex: 1, backgroundColor: 'rgba(34,26,15,0.5)', justifyContent: 'flex-end' },
+  roleModalOverlay: { flex: 1, backgroundColor: 'rgba(28,33,16,0.5)', justifyContent: 'flex-end' },
   roleModalSheet: {
     backgroundColor: C.bg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40,
