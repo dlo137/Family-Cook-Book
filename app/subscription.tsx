@@ -5,7 +5,9 @@ import {
   Easing,
   Image,
   Modal,
+  PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -41,6 +43,75 @@ const T_TOTAL = (T_CARD_W + T_GAP) * TESTIMONIALS.length;
 
 type PlanKey = 'monthly' | 'lifetime';
 
+// ── Debug Worm ───────────────────────────────────────────────────────────────
+function DebugWorm({ logs, listenerStatus }: { logs: string[]; listenerStatus: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
+      onPanResponderGrant: () => {
+        pan.setOffset({ x: (pan.x as any)._value, y: (pan.y as any)._value });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: () => pan.flattenOffset(),
+    })
+  ).current;
+
+  const statusColor = listenerStatus.includes('✅') || listenerStatus.includes('SUCCESS')
+    ? '#4CAF50'
+    : listenerStatus.includes('❌') || listenerStatus.includes('FAILED')
+    ? '#F44336'
+    : listenerStatus.includes('⏳')
+    ? '#FF9800'
+    : '#90CAF9';
+
+  if (!expanded) {
+    return (
+      <Animated.View
+        style={[dbs.worm, { transform: pan.getTranslateTransform() }]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity onPress={() => setExpanded(true)} activeOpacity={0.85} style={dbs.wormPill}>
+          <View style={[dbs.wormDot, { backgroundColor: statusColor }]} />
+          <Text style={dbs.wormLabel} numberOfLines={1}>IAP Debug</Text>
+          <MaterialIcons name="bug-report" size={14} color="#90CAF9" />
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      style={[dbs.panel, { transform: pan.getTranslateTransform() }]}
+      {...panResponder.panHandlers}
+    >
+      <View style={dbs.panelHeader}>
+        <View style={dbs.panelTitleRow}>
+          <MaterialIcons name="bug-report" size={14} color="#90CAF9" />
+          <Text style={dbs.panelTitle}>IAP Debug</Text>
+        </View>
+        <TouchableOpacity onPress={() => setExpanded(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <MaterialIcons name="close" size={16} color="#888" />
+        </TouchableOpacity>
+      </View>
+      <View style={dbs.statusRow}>
+        <View style={[dbs.wormDot, { backgroundColor: statusColor }]} />
+        <Text style={[dbs.statusText, { color: statusColor }]} numberOfLines={2}>{listenerStatus || 'Idle'}</Text>
+      </View>
+      <ScrollView style={dbs.logScroll} showsVerticalScrollIndicator={false}>
+        {logs.length === 0
+          ? <Text style={dbs.logEmpty}>No logs yet</Text>
+          : [...logs].reverse().map((l, i) => (
+              <Text key={i} style={dbs.logLine}>{l}</Text>
+            ))
+        }
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
 export default function Subscription() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -55,12 +126,29 @@ export default function Subscription() {
   const [purchasing, setPurchasing] = useState(false);
   const [discountVisible, setDiscountVisible] = useState(false);
 
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [listenerStatus, setListenerStatus] = useState('Idle');
+
   const isRestoringRef = useRef(false);
   const marqueeX = useRef(new Animated.Value(0)).current;
 
   // Fade in on mount
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, []);
+
+  // Wire up IAP debug callback
+  useEffect(() => {
+    iapService.setDebugCallback((info: any) => {
+      if (info.listenerStatus) setListenerStatus(info.listenerStatus);
+      if (info.purchaseLog) {
+        setDebugLogs((prev) => [...prev, info.purchaseLog]);
+      }
+      if (info.allPurchaseLogs) {
+        setDebugLogs(info.allPurchaseLogs);
+      }
+    });
+    return () => iapService.setDebugCallback(() => {});
   }, []);
 
   // Testimonial marquee
@@ -83,15 +171,20 @@ export default function Subscription() {
         const results = await iapService.getProducts();
         setProducts(results);
         setIapReady(true);
-      } catch {
-        if (!__DEV__) setIapReady(false);
+        const fetchLogs = iapService.getProductFetchLogs();
+        if (fetchLogs.length) setDebugLogs((prev) => [...prev, ...fetchLogs]);
+        setListenerStatus(results.length > 0 ? `✅ ${results.length} product(s) loaded` : '❌ No products returned');
+      } catch (e: any) {
+        if (iapService.isAvailable()) setIapReady(false);
+        setDebugLogs((prev) => [...prev, `fetchProducts error: ${e?.message}`]);
+        setListenerStatus('❌ Product fetch failed');
       } finally {
         setLoadingProducts(false);
       }
     };
     fetchProducts();
-    // In __DEV__ getProducts() returns [] immediately, still mark ready
-    if (__DEV__) setIapReady(true);
+    // If IAP module not linked (Expo Go), mark ready so UI is not locked
+    if (!iapService.isAvailable()) setIapReady(true);
   }, []);
 
   // ── DEV simulation ──────────────────────────────────────────────────────────
@@ -120,7 +213,8 @@ export default function Subscription() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   async function handleContinue() {
-    if (__DEV__) {
+    if (!iapService.isAvailable()) {
+      // IAP module not linked (Expo Go / web) — use simulation
       await simulatePurchase(selectedPlan);
       return;
     }
@@ -167,8 +261,7 @@ export default function Subscription() {
   }
 
   function handleClose() {
-    setDiscountVisible(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 60, friction: 10 }).start();
+    router.replace('/onboarding');
   }
 
   function dismissDiscount() {
@@ -313,6 +406,9 @@ export default function Subscription() {
         </TouchableOpacity>
         <Text style={s.cancelText}>{selectedPlan === 'lifetime' ? 'One Purchase. Lifetime Access.' : 'Cancel Anytime. No Commitment.'}</Text>
       </View>
+
+      {/* Debug worm — floating draggable log panel */}
+      <DebugWorm logs={debugLogs} listenerStatus={listenerStatus} />
 
       {/* Discount modal — shown when user tries to close */}
       <Modal transparent visible={discountVisible} animationType="fade">
@@ -482,4 +578,43 @@ const s = StyleSheet.create({
   discountBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
   discountSkip: { alignSelf: 'center' },
   discountSkipText: { fontSize: 13, color: C.outline, fontWeight: '500' },
+});
+
+const dbs = StyleSheet.create({
+  worm: {
+    position: 'absolute', top: 60, right: 12, zIndex: 999,
+  },
+  wormPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(20,20,30,0.88)', paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: '#334',
+  },
+  wormDot: { width: 8, height: 8, borderRadius: 4 },
+  wormLabel: { fontSize: 11, color: '#ccc', fontWeight: '600' },
+
+  panel: {
+    position: 'absolute', top: 60, right: 12, zIndex: 999,
+    width: 280, maxHeight: 320,
+    backgroundColor: 'rgba(16,16,24,0.95)', borderRadius: 14,
+    borderWidth: 1, borderColor: '#334', overflow: 'hidden',
+  },
+  panelHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#222',
+  },
+  panelTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  panelTitle: { fontSize: 12, fontWeight: '700', color: '#90CAF9' },
+  statusRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: '#1a1a2a',
+  },
+  statusText: { fontSize: 11, fontWeight: '600', flex: 1 },
+  logScroll: { maxHeight: 220, paddingHorizontal: 12, paddingVertical: 6 },
+  logEmpty: { fontSize: 11, color: '#555', fontStyle: 'italic' },
+  logLine: {
+    fontSize: 10, color: '#aaa', fontFamily: 'monospace',
+    lineHeight: 15, marginBottom: 2,
+  },
 });

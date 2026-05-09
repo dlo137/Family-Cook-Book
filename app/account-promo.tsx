@@ -31,7 +31,9 @@ export default function AccountPromo() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function AccountPromo() {
     if (!name.trim()) { setError('Please enter your name.'); return; }
     if (!email.trim()) { setError('Please enter your email.'); return; }
     if (!password.trim()) { setError('Please enter your password.'); return; }
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
 
     setError(null);
     setLoading(true);
@@ -136,11 +139,24 @@ export default function AccountPromo() {
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={(v) => { setError(null); setPassword(v); }}
-              returnKeyType="done"
-              onSubmitEditing={handleSignUp}
             />
             <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={s.eyeBtn} activeOpacity={0.6}>
               <MaterialIcons name={showPassword ? 'visibility-off' : 'visibility'} size={20} color={C.outline} />
+            </TouchableOpacity>
+          </View>
+          <View style={s.passwordWrap}>
+            <TextInput
+              style={s.passwordInput}
+              placeholder="Confirm Password"
+              placeholderTextColor={C.outline}
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={(v) => { setError(null); setConfirmPassword(v); }}
+              returnKeyType="done"
+              onSubmitEditing={handleSignUp}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword((v) => !v)} style={s.eyeBtn} activeOpacity={0.6}>
+              <MaterialIcons name={showConfirmPassword ? 'visibility-off' : 'visibility'} size={20} color={C.outline} />
             </TouchableOpacity>
           </View>
 
@@ -217,7 +233,7 @@ const s = StyleSheet.create({
   },
   sub: {
     fontSize: 14, color: C.onSurfaceVariant, textAlign: 'center',
-    lineHeight: 20, marginBottom: 20, maxWidth: 280,
+    lineHeight: 20, marginBottom: 20, maxWidth: 280, alignSelf: 'center',
   },
   input: {
     width: '100%',

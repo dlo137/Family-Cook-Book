@@ -41,7 +41,8 @@ const C = {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, signOut, isAnonymous } = useAuth();
+  const { user, signOut } = useAuth();
+  const isAnonymous = user?.is_anonymous ?? false;
 
   const [isPro, setIsPro] = useState(false);
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);

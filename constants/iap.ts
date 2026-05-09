@@ -18,7 +18,7 @@ export const PRODUCT_IDS = {
 /** Subscription SKUs (fetched with type: "subs") */
 export const SUBSCRIPTION_SKUS = [PRODUCT_IDS.monthly];
 
-/** Non-consumable SKUs (fetched with type: "inapp") */
+/** Non-consumable SKUs (fetched with type: "in-app") */
 export const INAPP_SKUS = [PRODUCT_IDS.lifetime];
 
 /** All SKUs combined */
@@ -38,7 +38,7 @@ export const PLANS = [
   {
     id: PRODUCT_IDS.lifetime,
     planKey: 'lifetime' as const,
-    type: 'inapp' as const,
+    type: 'in-app' as const,
     label: 'Lifetime',
     price: '$34.99',
     period: '',

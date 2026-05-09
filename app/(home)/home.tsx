@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   Image,
   KeyboardAvoidingView,
@@ -123,24 +124,26 @@ export default function Home() {
       });
   }, [user?.id]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("family_memberships")
-      .select("plan_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .then(({ data: memberships }) => {
-        const planId = memberships?.[0]?.plan_id;
-        if (!planId) return;
-        supabase
-          .from("recipes")
-          .select("id, title, content")
-          .eq("plan_id", planId)
-          .order("created_at", { ascending: false })
-          .then(({ data }) => setDbRecipes(data ?? []));
-      });
-  }, [user?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      supabase
+        .from("family_memberships")
+        .select("plan_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .then(({ data: memberships }) => {
+          const planId = memberships?.[0]?.plan_id;
+          if (!planId) return;
+          supabase
+            .from("recipes")
+            .select("id, title, content")
+            .eq("plan_id", planId)
+            .order("created_at", { ascending: false })
+            .then(({ data }) => setDbRecipes(data ?? []));
+        });
+    }, [user?.id])
+  );
 
   const sortedFamily = editMode
     ? family

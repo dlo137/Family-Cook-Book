@@ -57,7 +57,6 @@ serve(async (req) => {
           subscription_plan: plan,
           subscription_id:   transactionId,
           purchase_time:     now,
-          updated_at:        now,
         },
         { onConflict: 'id' }
       )

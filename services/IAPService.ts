@@ -7,7 +7,7 @@ import type { Purchase } from 'react-native-iap';
 // ─────────────────────────────────────────────────────────────────────────────
 // react-native-iap v14 (Nitro) API reference:
 //
-//   fetchProducts({ skus, type: 'subs' | 'inapp' })
+//   fetchProducts({ skus, type: 'subs' | 'in-app' })
 //   requestPurchase({ type, request: { apple: { sku } } })
 //   finishTransaction({ purchase, isConsumable })   ← uses purchase.id on iOS
 //   getAvailablePurchases()                         ← restore / pending check
@@ -137,7 +137,7 @@ class IAPService {
     if (INAPP_SKUS.length > 0) {
       this.log(`Fetching inapp: ${INAPP_SKUS.join(', ')}`);
       try {
-        const inapp = await iapModule.fetchProducts({ skus: INAPP_SKUS, type: 'inapp' });
+        const inapp = await iapModule.fetchProducts({ skus: INAPP_SKUS, type: 'in-app' });
         this.log(`✅ Got ${inapp.length} in-app product(s)`);
         results.push(...inapp);
       } catch (e: any) {
@@ -164,7 +164,7 @@ class IAPService {
     if (!this.isConnected) await this.initialize();
 
     // Determine purchase type from product ID
-    const type = INAPP_SKUS.includes(productId) ? 'inapp' : 'subs';
+    const type = INAPP_SKUS.includes(productId) ? 'in-app' : 'subs';
 
     this.currentPurchaseProductId = productId;
     await AsyncStorage.setItem(INFLIGHT_KEY, 'true');
