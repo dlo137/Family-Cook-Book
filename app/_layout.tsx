@@ -88,9 +88,12 @@ export default function RootLayout() {
   }, [isReady]);
 
   useEffect(() => {
-    // Step 4: Hide splash only after fonts + IAP are both ready
+    // Step 4: Hide splash only after fonts + IAP are both ready (min 1s display)
     if (isReady) {
-      SplashScreen.hideAsync().catch(() => {});
+      const timer = setTimeout(() => {
+        SplashScreen.hideAsync().catch(() => {});
+      }, 1000);
+      return () => clearTimeout(timer);
     }
   }, [isReady]);
 
@@ -107,6 +110,7 @@ export default function RootLayout() {
         <Stack.Screen name="add-recipe" />
         <Stack.Screen name="cook-mode" />
         <Stack.Screen name="add-favorite" />
+        <Stack.Screen name="confirmation" />
         <Stack.Screen name="account-promo" options={{ presentation: 'transparentModal', headerShown: false, animation: 'slide_from_bottom' }} />
       </Stack>
       </FavoritesProvider>

@@ -90,7 +90,7 @@ export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
   const { favorites } = useFavorites();
-  const [expanded, setExpanded] = useState<string | null>("mom");
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberAvatar, setNewMemberAvatar] = useState("");

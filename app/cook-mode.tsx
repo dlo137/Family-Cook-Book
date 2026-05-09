@@ -292,7 +292,9 @@ export default function CookMode() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const RECIPE = RECIPES[id ?? "1"] ?? RECIPES["1"];
+  // Normalise cook-page IDs (s1→1, s2→2 …) and fall back to "1"
+  const normalised = id?.replace(/^s/, "") ?? "1";
+  const RECIPE = RECIPES[normalised] ?? RECIPES["1"];
   const [phase, setPhase] = useState<Phase>("prep");
   const [stepIndex, setStepIndex] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});

@@ -13,6 +13,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { STATIC_RECIPES_MAP, isStaticRecipe } from "@/lib/staticRecipes";
 
 const C = {
   primary: "#556B2F",
@@ -36,6 +37,7 @@ type RecipeData = {
   title: string;
   by: string;
   photo: string | null;
+  photoSource?: number | null; // local require() for static recipes
   prep: string;
   cook: string;
   servings: string;
@@ -82,6 +84,24 @@ export default function Recipe() {
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
+    // Check hardcoded static recipes first (favorites, home, cook page)
+    if (isStaticRecipe(id)) {
+      const s = STATIC_RECIPES_MAP[id];
+      setRecipe({
+        title: s.title,
+        by: s.by,
+        photo: null,
+        photoSource: s.photoSource,
+        prep: s.prep,
+        cook: s.cook,
+        servings: s.servings,
+        tip: s.tip,
+        ingredients: s.ingredients,
+        steps: s.steps,
+      });
+      setLoading(false);
+      return;
+    }
     supabase
       .from("recipes")
       .select("id, title, content")
@@ -140,7 +160,9 @@ export default function Recipe() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         {/* Hero */}
         <View style={s.heroWrap}>
-          {recipe.photo ? (
+          {recipe.photoSource ? (
+            <Image source={recipe.photoSource} style={s.heroImg} resizeMode="cover" />
+          ) : recipe.photo ? (
             <Image source={{ uri: recipe.photo }} style={s.heroImg} resizeMode="cover" />
           ) : (
             <View style={[s.heroImg, { backgroundColor: C.surfaceContainer, alignItems: "center", justifyContent: "center" }]}>
