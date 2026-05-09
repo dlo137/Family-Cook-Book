@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -31,110 +32,40 @@ const C = {
   accent: "#C97B63",
 };
 
-const RECIPES: Record<string, {
+type RecipeData = {
   title: string;
   by: string;
-  source: number;
+  photo: string | null;
   prep: string;
   cook: string;
   servings: string;
   tip: string;
   ingredients: { id: string; text: string }[];
   steps: string[];
-}> = {
-  "1": {
-    title: "Mom's Famous Lasagna",
-    by: "Mom",
-    source: require("../assets/lasagna.png"),
-    prep: "20 min",
-    cook: "45 min",
-    servings: "6",
-    tip: "Add a pinch of nutmeg to the ricotta — it's Grandma's secret.",
-    ingredients: [
-      { id: "1", text: "1 lb Ground Beef" },
-      { id: "2", text: "2 cups Ricotta Cheese" },
-      { id: "3", text: "1 package Lasagna Noodles" },
-      { id: "4", text: "2 cups Shredded Mozzarella" },
-      { id: "5", text: "1 jar Marinara Sauce" },
-      { id: "6", text: "1 Egg" },
-      { id: "7", text: "Pinch of Nutmeg" },
-      { id: "8", text: "Salt & Pepper to taste" },
-    ],
-    steps: [
-      "Preheat your oven to 375°F (190°C). Bring a large pot of salted water to a boil.",
-      "Brown the ground beef in a large skillet over medium heat until no longer pink. Drain excess fat and season with salt and pepper.",
-      "Stir the marinara sauce into the cooked beef. Reduce heat and simmer for 10 minutes.",
-      "Mix the ricotta cheese with the egg and a pinch of nutmeg until smooth.",
-      "Cook the lasagna noodles according to package directions. Drain and lay flat.",
-      "Layer noodles, ricotta mixture, meat sauce, and mozzarella in a 9×13 baking dish. Repeat until all ingredients are used.",
-      "Top with remaining mozzarella. Cover with foil and bake for 25 minutes.",
-      "Remove foil and bake an additional 20 minutes until golden and bubbly. Rest 10 minutes before slicing.",
-    ],
-  },
-  "2": {
-    title: "Grandma's Sunday Roast",
-    by: "Grandma",
-    source: require("../assets/beefstew.jpg"),
-    prep: "20 min",
-    cook: "3 hrs",
-    servings: "8",
-    tip: "Low and slow is the only way — Grandma never rushed a roast.",
-    ingredients: [
-      { id: "1", text: "3 lb Beef Chuck Roast" },
-      { id: "2", text: "4 medium Potatoes, quartered" },
-      { id: "3", text: "3 large Carrots, cut into chunks" },
-      { id: "4", text: "2 Onions, sliced" },
-      { id: "5", text: "4 cloves Garlic, minced" },
-      { id: "6", text: "2 cups Beef Stock" },
-      { id: "7", text: "2 tbsp Olive Oil" },
-      { id: "8", text: "Fresh Rosemary & Thyme" },
-      { id: "9", text: "Salt & Pepper to taste" },
-    ],
-    steps: [
-      "Preheat your oven to 325°F (165°C). Pat the roast dry and season generously with salt and pepper.",
-      "Heat olive oil in a Dutch oven over high heat. Sear the roast on all sides until deeply browned, about 3–4 minutes per side.",
-      "Reduce heat. Add onions and garlic and cook 3 minutes. Add beef stock, scraping up browned bits.",
-      "Return the roast to the pot. Tuck potatoes, carrots, and herbs around it.",
-      "Cover tightly and roast in the oven for 2.5–3 hours until fall-apart tender.",
-      "Remove roast and vegetables. Simmer the juices on the stovetop for 5 minutes to make gravy. Serve together.",
-    ],
-  },
-  "3": {
-    title: "Dad's Summer Salad",
-    by: "Dad",
-    source: require("../assets/salad1.avif"),
-    prep: "15 min",
-    cook: "0 min",
-    servings: "2",
-    tip: "Soak the red onion in cold water first — Dad's trick for a milder bite.",
-    ingredients: [
-      { id: "1", text: "1 large head Romaine Lettuce, chopped" },
-      { id: "2", text: "1 cup Cherry Tomatoes, halved" },
-      { id: "3", text: "1 Cucumber, sliced" },
-      { id: "4", text: "½ Red Onion, thinly sliced" },
-      { id: "5", text: "½ cup Kalamata Olives" },
-      { id: "6", text: "100g Feta Cheese, crumbled" },
-      { id: "7", text: "3 tbsp Olive Oil" },
-      { id: "8", text: "1½ tbsp Red Wine Vinegar" },
-      { id: "9", text: "1 tsp Dried Oregano" },
-      { id: "10", text: "Salt & Pepper to taste" },
-    ],
-    steps: [
-      "Soak the sliced red onion in cold water for 10 minutes, then drain.",
-      "Combine the romaine, cherry tomatoes, cucumber, and drained red onion in a large bowl.",
-      "Whisk together olive oil, red wine vinegar, oregano, salt, and pepper.",
-      "Add the olives and drizzle the dressing over the salad. Toss gently.",
-      "Top with crumbled feta and serve immediately.",
-    ],
-  },
 };
+
+function mapRow(row: any): RecipeData {
+  const c = row.content as any ?? {};
+  return {
+    title: row.title,
+    by: c.author ?? "",
+    photo: c.photo ?? null,
+    prep: c.prep_time ?? "",
+    cook: c.cook_time ?? "",
+    servings: c.servings ?? "",
+    tip: c.notes ?? "",
+    ingredients: (c.ingredients ?? []).map((text: string, i: number) => ({ id: String(i), text })),
+    steps: c.steps ?? [],
+  };
+}
 
 export default function Recipe() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const recipe = RECIPES[id ?? "1"] ?? RECIPES["1"];
+  const [recipe, setRecipe] = useState<RecipeData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [favorited, setFavorited] = useState(false);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
@@ -149,10 +80,49 @@ export default function Recipe() {
       .then(({ data }) => setFamilyRole(data?.family_role ?? null));
   }, [user?.id]);
 
-  const canEdit = !!familyRole && recipe.by.toLowerCase() === familyRole.toLowerCase();
+  useEffect(() => {
+    if (!id) { setLoading(false); return; }
+    supabase
+      .from("recipes")
+      .select("id, title, content")
+      .eq("id", id)
+      .single()
+      .then(({ data, error }) => {
+        if (!error && data) setRecipe(mapRow(data));
+        setLoading(false);
+      });
+  }, [id]);
 
-  const toggleCheck = (id: string) =>
-    setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleCheck = (ingId: string) =>
+    setChecked((prev) => ({ ...prev, [ingId]: !prev[ingId] }));
+
+  const canEdit = !!familyRole && !!recipe && recipe.by.toLowerCase() === familyRole.toLowerCase();
+
+  if (loading) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator color={C.primary} size="large" />
+      </View>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top }]}>
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            <TouchableOpacity onPress={() => router.back()} style={s.iconBtn}>
+              <MaterialIcons name="arrow-back" size={24} color={C.primary} />
+            </TouchableOpacity>
+            <Text style={s.headerTitle}>Family Cookbook</Text>
+          </View>
+        </View>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 16, color: C.outline }}>Recipe not found.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -170,29 +140,42 @@ export default function Recipe() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
         {/* Hero */}
         <View style={s.heroWrap}>
-          <Image source={recipe.source} style={s.heroImg} resizeMode="cover" />
-          <View style={s.heroGradient} />
-          <View style={s.heroBadge}>
-            <Text style={s.heroBadgeText}>By {recipe.by}</Text>
-          </View>
+          {recipe.photo ? (
+            <Image source={{ uri: recipe.photo }} style={s.heroImg} resizeMode="cover" />
+          ) : (
+            <View style={[s.heroImg, { backgroundColor: C.surfaceContainer, alignItems: "center", justifyContent: "center" }]}>
+              <MaterialIcons name="restaurant" size={56} color={C.outlineVariant} />
+            </View>
+          )}
+          {recipe.by ? (
+            <View style={s.heroBadge}>
+              <Text style={s.heroBadgeText}>By {recipe.by}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Title + Meta */}
         <View style={s.titleBlock}>
           <Text style={s.title}>{recipe.title}</Text>
           <View style={s.metaRow}>
-            <View style={s.metaItem}>
-              <MaterialIcons name="timer" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Prep: {recipe.prep}</Text>
-            </View>
-            <View style={s.metaItem}>
-              <MaterialIcons name="outdoor-grill" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Cook: {recipe.cook}</Text>
-            </View>
-            <View style={s.metaItem}>
-              <MaterialIcons name="restaurant" size={22} color={C.primary} />
-              <Text style={s.metaLabel}>Servings: {recipe.servings}</Text>
-            </View>
+            {recipe.prep ? (
+              <View style={s.metaItem}>
+                <MaterialIcons name="timer" size={22} color={C.primary} />
+                <Text style={s.metaLabel}>Prep: {recipe.prep}</Text>
+              </View>
+            ) : null}
+            {recipe.cook ? (
+              <View style={s.metaItem}>
+                <MaterialIcons name="outdoor-grill" size={22} color={C.primary} />
+                <Text style={s.metaLabel}>Cook: {recipe.cook}</Text>
+              </View>
+            ) : null}
+            {recipe.servings ? (
+              <View style={s.metaItem}>
+                <MaterialIcons name="restaurant" size={22} color={C.primary} />
+                <Text style={s.metaLabel}>Serves: {recipe.servings}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -225,64 +208,58 @@ export default function Recipe() {
         </View>
 
         {/* Ingredients */}
-        <View style={s.section}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>Ingredients</Text>
-            {canEdit && <Text style={s.editableLabel}>EDITABLE</Text>}
+        {recipe.ingredients.length > 0 && (
+          <View style={s.section}>
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionTitle}>Ingredients</Text>
+              {canEdit && <Text style={s.editableLabel}>EDITABLE</Text>}
+            </View>
+            {recipe.ingredients.map((ing) => (
+              <TouchableOpacity
+                key={ing.id}
+                style={s.ingredientRow}
+                onPress={() => toggleCheck(ing.id)}
+                activeOpacity={0.7}
+              >
+                <MaterialIcons
+                  name={checked[ing.id] ? "check-box" : "check-box-outline-blank"}
+                  size={22}
+                  color={checked[ing.id] ? C.primary : C.outlineVariant}
+                />
+                <Text style={[s.ingredientText, checked[ing.id] && s.ingredientChecked]}>
+                  {ing.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          {recipe.ingredients.map((ing) => (
-            <TouchableOpacity
-              key={ing.id}
-              style={s.ingredientRow}
-              onPress={() => toggleCheck(ing.id)}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons
-                name={checked[ing.id] ? "check-box" : "check-box-outline-blank"}
-                size={22}
-                color={checked[ing.id] ? C.primary : C.outlineVariant}
-              />
-              <Text style={[s.ingredientText, checked[ing.id] && s.ingredientChecked]}>
-                {ing.text}
-              </Text>
-            </TouchableOpacity>
-          ))}
-          {canEdit && (
-            <TouchableOpacity style={s.addDashedBtn}>
-              <MaterialIcons name="add" size={20} color={C.onSurfaceVariant} />
-              <Text style={s.addDashedText}>Add Ingredient</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        )}
 
-        {/* Grandma's Tip */}
-        <View style={s.section}>
-          <View style={s.tipCard}>
-            <Text style={s.tipTitle}>Grandma's Tip</Text>
-            <Text style={s.tipText}>"{recipe.tip}"</Text>
+        {/* Family Tip */}
+        {recipe.tip ? (
+          <View style={s.section}>
+            <View style={s.tipCard}>
+              <Text style={s.tipTitle}>Family Tip</Text>
+              <Text style={s.tipText}>"{recipe.tip}"</Text>
+            </View>
           </View>
-        </View>
+        ) : null}
 
         {/* Instructions */}
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Instructions</Text>
-          {recipe.steps.map((step, i) => (
-            <View key={i} style={s.stepWrap}>
-              <View style={s.stepBadge}>
-                <Text style={s.stepBadgeText}>{i + 1}</Text>
+        {recipe.steps.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Instructions</Text>
+            {recipe.steps.map((step, i) => (
+              <View key={i} style={s.stepWrap}>
+                <View style={s.stepBadge}>
+                  <Text style={s.stepBadgeText}>{i + 1}</Text>
+                </View>
+                <View style={s.stepCard}>
+                  <Text style={s.stepText}>{step}</Text>
+                </View>
               </View>
-              <View style={s.stepCard}>
-                <Text style={s.stepText}>{step}</Text>
-              </View>
-            </View>
-          ))}
-          {canEdit && (
-            <TouchableOpacity style={[s.addDashedBtn, s.addStepBtn]}>
-              <MaterialIcons name="playlist-add" size={24} color={C.onSurfaceVariant} />
-              <Text style={s.addDashedText}>Add Step</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -305,7 +282,6 @@ const s = StyleSheet.create({
 
   heroWrap: { marginHorizontal: 16, marginTop: 16, borderRadius: 16, overflow: "hidden", aspectRatio: 4 / 3 },
   heroImg: { width: "100%", height: "100%" },
-  heroGradient: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0)", backgroundImage: undefined },
   heroBadge: {
     position: "absolute", bottom: 14, left: 14,
     backgroundColor: C.primary + "e6",
@@ -315,7 +291,7 @@ const s = StyleSheet.create({
 
   titleBlock: { alignItems: "center", paddingHorizontal: 24, marginTop: 20 },
   title: { fontSize: 32, fontWeight: "700", fontStyle: "italic", color: C.onSurface, textAlign: "center", lineHeight: 38 },
-  metaRow: { flexDirection: "row", gap: 28, marginTop: 16 },
+  metaRow: { flexDirection: "row", gap: 28, marginTop: 16, flexWrap: "wrap", justifyContent: "center" },
   metaItem: { alignItems: "center", gap: 4 },
   metaLabel: { fontSize: 12, fontWeight: "500", color: C.onSurfaceVariant },
 
@@ -349,15 +325,6 @@ const s = StyleSheet.create({
   ingredientText: { fontSize: 15, color: C.onSurface, flex: 1 },
   ingredientChecked: { textDecorationLine: "line-through", color: C.outline },
 
-  addDashedBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    paddingVertical: 14, marginTop: 4,
-    backgroundColor: C.surfaceContainerLow,
-    borderRadius: 12,
-  },
-  addDashedText: { fontSize: 14, fontWeight: "500", color: C.onSurfaceVariant },
-  addStepBtn: { paddingVertical: 20, marginTop: 8 },
-
   tipCard: { backgroundColor: C.tertiaryFixed, padding: 20, borderRadius: 16 },
   tipTitle: { fontSize: 20, fontWeight: "700", fontStyle: "italic", color: C.onSurface, marginBottom: 8 },
   tipText: { fontSize: 17, fontStyle: "italic", color: C.onTertiaryFixedVariant, lineHeight: 26 },
@@ -366,7 +333,7 @@ const s = StyleSheet.create({
   stepBadge: {
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: C.primary, alignItems: "center", justifyContent: "center",
-    marginBottom: -16, marginLeft: 0, zIndex: 1, alignSelf: "flex-start", marginLeft: 4,
+    marginBottom: -16, marginLeft: 4, zIndex: 1, alignSelf: "flex-start",
     shadowColor: C.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 3,
   },
   stepBadgeText: { color: C.onPrimary, fontWeight: "700", fontSize: 13 },
@@ -376,4 +343,12 @@ const s = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: C.surfaceContainer,
   },
   stepText: { fontSize: 15, color: C.onSurface, lineHeight: 24 },
+
+  addDashedBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    paddingVertical: 14, marginTop: 4,
+    backgroundColor: C.surfaceContainerLow,
+    borderRadius: 12,
+  },
+  addDashedText: { fontSize: 14, fontWeight: "500", color: C.onSurfaceVariant },
 });

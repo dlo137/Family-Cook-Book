@@ -15,6 +15,8 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Audio } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const C = {
   primary: "#556B2F",
@@ -32,53 +34,35 @@ const C = {
   accent: "#C97B63",
 };
 
-const FILTERS = ["All", "Favorites", "Mom", "Dad", "Grandma"];
+type CookRecipe = {
+  id: string;
+  title: string;
+  meta: string;
+  by: string;
+  source: number | { uri: string } | null;
+};
 
-
-const RECIPES = [
-  {
-    id: "1",
-    title: "Mom's Famous Lasagna",
-    meta: "45 min • 6 servings",
-    by: "Mom",
-    source: require("../../assets/lasagna.png"),
-  },
-  {
-    id: "2",
-    title: "Grandma's Sunday Roast",
-    meta: "120 min • 8 servings",
-    by: "Grandma",
-    source: require("../../assets/beefstew.jpg"),
-  },
-  {
-    id: "3",
-    title: "Dad's Summer Salad",
-    meta: "15 min • 2 servings",
-    by: "Dad",
-    source: require("../../assets/salad1.avif"),
-  },
-  {
-    id: "4",
-    title: "Sister's Taco Night Special",
-    meta: "30 min • 4 servings",
-    by: "Mom",
-    source: require("../../assets/tacos.webp"),
-  },
-  {
-    id: "5",
-    title: "Weekend Fluffy Pancakes",
-    meta: "25 min • 4 servings",
-    by: "Dad",
-    source: require("../../assets/pancakes.webp"),
-  },
+const STATIC_RECIPES: CookRecipe[] = [
+  { id: "s1", title: "Mom's Famous Lasagna", meta: "45 min • 6 servings", by: "Mom", source: require("../../assets/lasagna.png") },
+  { id: "s2", title: "Grandma's Sunday Roast", meta: "120 min • 8 servings", by: "Grandma", source: require("../../assets/beefstew.jpg") },
+  { id: "s3", title: "Dad's Summer Salad", meta: "15 min • 2 servings", by: "Dad", source: require("../../assets/salad1.avif") },
+  { id: "s4", title: "Sister's Taco Night Special", meta: "30 min • 4 servings", by: "Mom", source: require("../../assets/tacos.webp") },
+  { id: "s5", title: "Weekend Fluffy Pancakes", meta: "25 min • 4 servings", by: "Dad", source: require("../../assets/pancakes.webp") },
 ];
 
 export default function Other() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [dbRecipes, setDbRecipes] = useState<CookRecipe[]>([]);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string>("s1");
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickSoundRef = useRef<Audio.Sound | null>(null);
 
   function toggleFavorite(id: string) {
     setFavorites((prev) => {
@@ -87,13 +71,7 @@ export default function Other() {
       return next;
     });
   }
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string>("1");
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickSoundRef = useRef<Audio.Sound | null>(null);
 
-  // Load sound once on mount, unload on unmount
   useEffect(() => {
     Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
     Audio.Sound.createAsync(require("../../assets/sounds/timer-beep.mp3"))
@@ -101,6 +79,38 @@ export default function Other() {
       .catch((e) => console.warn("Could not load tick sound:", e));
     return () => { tickSoundRef.current?.unloadAsync(); };
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      const { data: memberships } = await supabase
+        .from("family_memberships")
+        .select("plan_id")
+        .eq("user_id", user!.id)
+        .limit(1);
+      const planId = memberships?.[0]?.plan_id;
+      if (!planId) return;
+      const { data } = await supabase
+        .from("recipes")
+        .select("id, title, content")
+        .eq("plan_id", planId)
+        .order("created_at", { ascending: false });
+      setDbRecipes(
+        (data ?? []).map((r) => {
+          const c = r.content as any;
+          const parts = [c?.cook_time, c?.servings ? `${c.servings} servings` : null].filter(Boolean);
+          return {
+            id: r.id,
+            title: r.title,
+            meta: parts.join(" • "),
+            by: c?.author ?? "Unknown",
+            source: c?.photo ? { uri: c.photo } : null,
+          };
+        })
+      );
+    }
+    load();
+  }, [user?.id]);
 
   const startCooking = (recipeId: string) => {
     setSelectedRecipeId(recipeId);
@@ -118,22 +128,21 @@ export default function Other() {
 
   useEffect(() => {
     if (countdown === null) return;
-
-    // Pulse animation on each tick
     scaleAnim.setValue(1.4);
     Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
-
     if (countdown === 0) {
       setCountdown(null);
       router.push({ pathname: "/cook-mode", params: { id: selectedRecipeId } } as any);
       return;
     }
-
     intervalRef.current = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
     return () => { if (intervalRef.current) clearTimeout(intervalRef.current); };
   }, [countdown]);
 
-  const filtered = RECIPES.filter((r) => {
+  const allRecipes = [...STATIC_RECIPES, ...dbRecipes];
+  const filters = ["All", "Favorites", ...Array.from(new Set(allRecipes.map((r) => r.by)))];
+
+  const filtered = allRecipes.filter((r) => {
     const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase());
     if (activeFilter === "Favorites") return matchesSearch && favorites.has(r.id);
     if (activeFilter !== "All") return matchesSearch && r.by === activeFilter;
@@ -153,7 +162,6 @@ export default function Other() {
         </View>
       </View>
 
-
       {/* Countdown overlay */}
       <Modal visible={countdown !== null} transparent animationType="fade">
         <View style={s.countdownOverlay}>
@@ -161,7 +169,14 @@ export default function Other() {
             {countdown}
           </Animated.Text>
           <Text style={s.countdownLabel}>Get ready to cook!</Text>
-          <TouchableOpacity style={s.countdownCancel} onPress={() => { setCountdown(null); if (intervalRef.current) clearTimeout(intervalRef.current); tickSoundRef.current?.stopAsync(); }}>
+          <TouchableOpacity
+            style={s.countdownCancel}
+            onPress={() => {
+              setCountdown(null);
+              if (intervalRef.current) clearTimeout(intervalRef.current);
+              tickSoundRef.current?.stopAsync();
+            }}
+          >
             <Text style={s.countdownCancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -196,7 +211,7 @@ export default function Other() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.filterRow}
         >
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <TouchableOpacity
               key={f}
               style={[s.filterChip, activeFilter === f && s.filterChipActive]}
@@ -217,10 +232,16 @@ export default function Other() {
               activeOpacity={0.7}
               onPress={() => startCooking(recipe.id)}
             >
-              <Image source={recipe.source} style={s.recipeImg} resizeMode="cover" />
+              {recipe.source ? (
+                <Image source={recipe.source as any} style={s.recipeImg} resizeMode="cover" />
+              ) : (
+                <View style={[s.recipeImg, s.recipeImgPlaceholder]}>
+                  <MaterialIcons name="restaurant" size={28} color={C.outlineVariant} />
+                </View>
+              )}
               <View style={s.recipeInfo}>
                 <Text style={s.recipeTitle}>{recipe.title}</Text>
-                <Text style={s.recipeMeta}>{recipe.meta}</Text>
+                {recipe.meta ? <Text style={s.recipeMeta}>{recipe.meta}</Text> : null}
               </View>
               <TouchableOpacity
                 style={s.heartBtn}
@@ -267,7 +288,6 @@ const s = StyleSheet.create({
   avatar: { width: 32, height: 32, borderRadius: 16, overflow: "hidden", backgroundColor: C.surfaceContainerHigh },
   avatarImg: { width: "100%", height: "100%" },
 
-
   scroll: { paddingHorizontal: 20 },
 
   titleBlock: { marginTop: 20, marginBottom: 16 },
@@ -298,6 +318,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
   },
   recipeImg: { width: 76, height: 76, borderRadius: 12, backgroundColor: C.surfaceContainer, flexShrink: 0, overflow: "hidden" },
+  recipeImgPlaceholder: { alignItems: "center", justifyContent: "center" },
   recipeInfo: { flex: 1 },
   recipeTitle: { fontSize: 17, fontWeight: "700", color: C.onSurface, lineHeight: 22 },
   recipeMeta: { fontSize: 13, color: C.onSurfaceVariant, marginTop: 4 },
@@ -312,7 +333,7 @@ const s = StyleSheet.create({
   startBtnText: { color: C.onPrimary, fontSize: 12, fontWeight: "700" },
 
   empty: { paddingVertical: 40, alignItems: "center" },
-  emptyText: { fontSize: 15, color: C.outline },
+  emptyText: { fontSize: 15, color: C.outline, textAlign: "center" },
 
   countdownOverlay: {
     flex: 1, backgroundColor: "rgba(28,33,16,0.85)",

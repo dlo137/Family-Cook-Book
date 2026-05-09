@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   StyleSheet,
@@ -31,8 +32,8 @@ const SLIDES = [
   {
     id: '1',
     icon: 'menu-book' as const,
-    headline: 'Your Family\nRecipes, Together',
-    sub: 'Collect and preserve the recipes passed down through generations — all in one place.',
+    headline: 'Welcome to Your Cookbook',
+    sub: 'Save recipes, share favorite meals, & keep every tradition alive!',
   },
   {
     id: '2',
@@ -89,6 +90,7 @@ export default function Onboarding() {
   }
 
   const isLast = activeIndex === SLIDES.length - 1;
+  const isFirst = activeIndex === 0;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -101,13 +103,27 @@ export default function Onboarding() {
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={onScroll}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <View style={s.slide}>
-            <View style={s.iconWrap}>
-              <MaterialIcons name={item.icon} size={72} color={C.primary} />
-            </View>
-            <Text style={s.headline}>{item.headline}</Text>
-            <Text style={s.sub}>{item.sub}</Text>
+            {index === 0 ? (
+              <>
+                <View style={s.brandRow}>
+                  <Image source={require('../assets/icon.png')} style={s.brandIcon} />
+                  <Text style={s.brandText}>The Family Cookbook</Text>
+                </View>
+                <Text style={s.headline}>{item.headline}</Text>
+                <Image source={require('../assets/onboarding1.png')} style={s.mockupImage} resizeMode="contain" />
+                <Text style={s.sub}>{item.sub}</Text>
+              </>
+            ) : (
+              <>
+                <View style={s.iconWrap}>
+                  <MaterialIcons name={item.icon} size={72} color={C.primary} />
+                </View>
+                <Text style={s.headline}>{item.headline}</Text>
+                <Text style={s.sub}>{item.sub}</Text>
+              </>
+            )}
           </View>
         )}
       />
@@ -120,13 +136,13 @@ export default function Onboarding() {
         </View>
 
         <TouchableOpacity style={s.button} onPress={handleNext} activeOpacity={0.85}>
-          <Text style={s.buttonText}>{isLast ? 'Get Started' : 'Next'}</Text>
+          <Text style={s.buttonText}>{isLast || isFirst ? 'Get Started' : 'Next'}</Text>
           <MaterialIcons name="arrow-forward" size={18} color={C.onSurface} />
         </TouchableOpacity>
 
         {!isLast && (
           <TouchableOpacity onPress={() => router.push('/signin')} activeOpacity={0.7}>
-            <Text style={s.skip}>Already have an account? Sign in</Text>
+            <Text style={s.skip}>Already have an account? <Text style={s.skipSignIn}>Sign in</Text></Text>
           </TouchableOpacity>
         )}
       </View>
@@ -142,6 +158,14 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 40, gap: 28,
   },
+
+  brandRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 4,
+  },
+  brandIcon: { width: 36, height: 36, borderRadius: 8 },
+  brandText: { fontSize: 26, fontFamily: 'GreatVibes_400Regular', color: C.onSurface },
+  mockupImage: { width: SCREEN_WIDTH * 0.78, height: SCREEN_WIDTH * 0.78, marginBottom: 4 },
 
   iconWrap: {
     width: 140, height: 140, borderRadius: 70,
@@ -178,4 +202,5 @@ const s = StyleSheet.create({
   buttonText: { fontSize: 17, fontWeight: '800', color: C.onSurface, letterSpacing: -0.2 },
 
   skip: { fontSize: 14, color: C.outline, fontWeight: '500' },
+  skipSignIn: { color: '#2B2B2B', fontStyle: 'italic' },
 });

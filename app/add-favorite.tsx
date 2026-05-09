@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useFavorites } from "@/context/FavoritesContext";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const C = {
   primary: "#556B2F",
@@ -29,62 +31,69 @@ const C = {
   accent: "#C97B63",
 };
 
-const FILTERS = ["All", "Mom", "Dad", "Grandma", "Sister"];
+type RecipeRow = {
+  id: string;
+  title: string;
+  author: string;
+  meta: string;
+  source: number | { uri: string } | null;
+};
 
-const ALL_RECIPES = [
-  {
-    id: "1",
-    title: "Mom's Famous Lasagna",
-    author: "Mom",
-    meta: "45 min • 6 servings",
-    source: require("../assets/lasagna.png"),
-  },
-  {
-    id: "2",
-    title: "Grandma's Sunday Roast",
-    author: "Grandma",
-    meta: "120 min • 8 servings",
-    source: require("../assets/beefstew.jpg"),
-  },
-  {
-    id: "3",
-    title: "Dad's Summer Salad",
-    author: "Dad",
-    meta: "15 min • 2 servings",
-    source: require("../assets/salad1.avif"),
-  },
-  {
-    id: "4",
-    title: "Sister's Taco Night Special",
-    author: "Sister",
-    meta: "30 min • 4 servings",
-    source: require("../assets/tacos.webp"),
-  },
-  {
-    id: "5",
-    title: "Weekend Fluffy Pancakes",
-    author: "Mom",
-    meta: "25 min • 4 servings",
-    source: require("../assets/pancakes.webp"),
-  },
-  {
-    id: "6",
-    title: "Classic Caesar Salad",
-    author: "Mom",
-    meta: "20 min • 4 servings",
-    source: require("../assets/salad1.avif"),
-  },
+const STATIC_RECIPES: RecipeRow[] = [
+  { id: "s1", title: "Mom's Famous Lasagna", author: "Mom", meta: "45 min • 6 servings", source: require("../assets/lasagna.png") },
+  { id: "s2", title: "Grandma's Sunday Roast", author: "Grandma", meta: "120 min • 8 servings", source: require("../assets/beefstew.jpg") },
+  { id: "s3", title: "Dad's Summer Salad", author: "Dad", meta: "15 min • 2 servings", source: require("../assets/salad1.avif") },
+  { id: "s4", title: "Sister's Taco Night Special", author: "Sister", meta: "30 min • 4 servings", source: require("../assets/tacos.webp") },
+  { id: "s5", title: "Weekend Fluffy Pancakes", author: "Mom", meta: "25 min • 4 servings", source: require("../assets/pancakes.webp") },
+  { id: "s6", title: "Classic Caesar Salad", author: "Mom", meta: "20 min • 4 servings", source: require("../assets/salad1.avif") },
 ];
 
 export default function AddFavorite() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const { addFavorites } = useFavorites();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dbRecipes, setDbRecipes] = useState<RecipeRow[]>([]);
 
-  const filtered = ALL_RECIPES.filter((r) => {
+  useEffect(() => {
+    if (!user) return;
+    async function load() {
+      const { data: memberships } = await supabase
+        .from("family_memberships")
+        .select("plan_id")
+        .eq("user_id", user!.id)
+        .limit(1);
+      const planId = memberships?.[0]?.plan_id;
+      if (!planId) return;
+      const { data } = await supabase
+        .from("recipes")
+        .select("id, title, content")
+        .eq("plan_id", planId)
+        .order("created_at", { ascending: false });
+      setDbRecipes(
+        (data ?? []).map((r) => {
+          const c = r.content as any;
+          const parts = [c?.cook_time, c?.servings ? `${c.servings} servings` : null].filter(Boolean);
+          return {
+            id: r.id,
+            title: r.title,
+            author: c?.author ?? "Unknown",
+            meta: parts.join(" • "),
+            source: c?.photo ? { uri: c.photo } : null,
+          };
+        })
+      );
+    }
+    load();
+  }, [user?.id]);
+
+  const allRecipes = [...STATIC_RECIPES, ...dbRecipes];
+  const filters = ["All", ...Array.from(new Set(allRecipes.map((r) => r.author)))];
+
+  const filtered = allRecipes.filter((r) => {
     const matchesSearch =
       r.title.toLowerCase().includes(search.toLowerCase()) ||
       r.author.toLowerCase().includes(search.toLowerCase());
@@ -112,7 +121,7 @@ export default function AddFavorite() {
           style={[s.addBtn, selected.size === 0 && s.addBtnDisabled]}
           onPress={() => {
             if (selected.size === 0) return;
-            const toAdd = ALL_RECIPES
+            const toAdd = allRecipes
               .filter((r) => selected.has(r.id))
               .map((r) => ({ id: r.id, title: r.title, source: r.source }));
             addFavorites(toAdd);
@@ -150,7 +159,7 @@ export default function AddFavorite() {
         contentContainerStyle={s.filterRow}
         style={s.filterScroll}
       >
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <TouchableOpacity
             key={f}
             style={[s.filterChip, activeFilter === f && s.filterChipActive]}
@@ -182,7 +191,13 @@ export default function AddFavorite() {
               activeOpacity={0.75}
             >
               <View style={s.imgWrap}>
-                <Image source={recipe.source} style={s.recipeImg} resizeMode="cover" />
+                {recipe.source ? (
+                  <Image source={recipe.source as any} style={s.recipeImg} resizeMode="cover" />
+                ) : (
+                  <View style={[s.recipeImg, { backgroundColor: C.surfaceContainerHigh, alignItems: "center", justifyContent: "center" }]}>
+                    <MaterialIcons name="restaurant" size={24} color={C.outlineVariant} />
+                  </View>
+                )}
                 {isSelected && (
                   <View style={s.imgOverlay}>
                     <MaterialIcons name="check-circle" size={28} color={C.onPrimary} />

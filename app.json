@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Family Cookbook",
-    "slug": "The Cookbook",
+    "slug": "family-cookbook",
     "scheme": "family-cookbook",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -9,8 +9,8 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
+      "image": "./assets/splashscreen.png",
+      "resizeMode": "cover",
       "backgroundColor": "#ffffff"
     },
     "ios": {
@@ -19,7 +19,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "9"
+      "buildNumber": "10"
     },
     "android": {
       "adaptiveIcon": {

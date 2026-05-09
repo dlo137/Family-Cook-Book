@@ -40,63 +40,30 @@ const C = {
   accent: "#C97B63",
 };
 
-const FAVORITES = [
-  {
-    id: "1",
-    label: "Mom's Lasagna",
-    source: require("../../assets/lasagna.png"),
-  },
-  {
-    id: "2",
-    label: "Dad's Chili",
-    source: require("../../assets/beefstew.jpg"),
-  },
-  {
-    id: "3",
-    label: "Nan's Pancakes",
-    source: require("../../assets/pancakes.webp"),
-  },
-];
+type FamilyRecipeItem = { id: string; name: string; source: number | { uri: string } | null };
+type HomeMember = { id: string; name: string; avatar: string };
 
-const FAMILY = [
+const HARDCODED_RECIPES: Record<string, FamilyRecipeItem[]> = {
+  mom: [{ id: "static-1", name: "Mom's Famous Lasagna", source: require("../../assets/lasagna.png") }],
+  dad: [{ id: "static-3", name: "Dad's Summer Salad", source: require("../../assets/salad1.avif") }],
+  grandma: [{ id: "static-2", name: "Grandma's Sunday Roast", source: require("../../assets/beefstew.jpg") }],
+};
+
+const FAMILY: HomeMember[] = [
   {
     id: "mom",
     name: "Mom",
-    count: "1 recipe",
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBxWGPbNEawsG3axY83GA5D-2w7Tt8gYvXVlBZZHwXHFOyTZXBOr95TW-nX6VXn5mtAx6BehUwQfB-KPqjNFDWbXgzdLwsyWnzM49DRA2u319eWZ_Sd0MxtdBZbWNEKrnOyjLO750TGsxLncVwgtCtAP46XZSQSC-Lxx0gAv1_4SKA8V5viP390w08AonpenbCllAOn4Imx00WMPaDmb53PmjGwonH0gQcK1j-EVi2Bx7VvsIp-ANobpz_0rL3CZZFFtW6aJd2P3Xk",
-    recipes: [
-      {
-        id: "1",
-        name: "Mom's Famous Lasagna",
-        source: require("../../assets/lasagna.png"),
-      },
-    ],
   },
   {
     id: "dad",
     name: "Dad",
-    count: "1 recipe",
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuAjnbgU_5_u65tlYEEzommgafl584wdlO4l2dKSPT0-ZJEn5a-lqmYvGh0zZcYR-pZ-yrpP08lp1k_Msz2jR5e9GOKnHyx9ruxg1LZNBRmDyLZ7DFE2O84qjDFB42QjWUgLAIjsKPvvj6m5borLgpL2bHw_cKWheYBVDXug2HL_9BJ4catqMYGc6HKWIDaQHvwxSH81MKAo4RvpvR71E3x6Jwfr4x04qHaV77WmvtOXkrlvRUyQVqklkOVbqGFHAdnWYfOo4vsdteo",
-    recipes: [
-      {
-        id: "3",
-        name: "Dad's Summer Salad",
-        source: require("../../assets/salad1.avif"),
-      },
-    ],
   },
   {
     id: "grandma",
     name: "Grandma",
-    count: "1 recipe",
     avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA02DNm62bt4F_evfbcb2DhU8WvSyXAEDq6FeVKHfohl4mbWHLaUn2fPSTLwZtfUlj7T-D8_7z5VbSbm9aVKl4fStAfXnnfz9pIL1Qy_ar2ihmNXKsrcyBgAVcT_jlooj9Q8o4nOFeV6Ps2wzslsslIMYXBAa2-TvFzgtol-UbvfUggMOn1vXDkJwHSIkJDjY81zzZNYtpjiH0HQhBBn8oAq1nswKGuXbJaIUWJQHwAtpnTF0QzH8rvjt3OI4u_2ow01cl3seBv_-0",
-    recipes: [
-      {
-        id: "2",
-        name: "Grandma's Sunday Roast",
-        source: require("../../assets/beefstew.jpg"),
-      },
-    ],
   },
 ];
 
@@ -128,12 +95,13 @@ export default function Home() {
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberAvatar, setNewMemberAvatar] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("");
-  const [family, setFamily] = useState(FAMILY);
+  const [family, setFamily] = useState<HomeMember[]>(FAMILY);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const psNote = useMemo(() => PS_NOTES[Math.floor(Math.random() * PS_NOTES.length)], []);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
+  const [dbRecipes, setDbRecipes] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -149,9 +117,28 @@ export default function Home() {
           setFamily((prev) => {
             const exists = prev.some((m) => m.name.toLowerCase() === role.toLowerCase());
             if (exists) return prev;
-            return [...prev, { id: role.toLowerCase(), name: role, count: "0 recipes", avatar: "", recipes: [] }];
+            return [...prev, { id: role.toLowerCase(), name: role, avatar: "" }];
           });
         }
+      });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("family_memberships")
+      .select("plan_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .then(({ data: memberships }) => {
+        const planId = memberships?.[0]?.plan_id;
+        if (!planId) return;
+        supabase
+          .from("recipes")
+          .select("id, title, content")
+          .eq("plan_id", planId)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => setDbRecipes(data ?? []));
       });
   }, [user?.id]);
 
@@ -229,8 +216,15 @@ export default function Home() {
               <Text style={s.addFavLabel}>ADD NEW</Text>
             </TouchableOpacity>
             {favorites.map((fav) => (
-              <TouchableOpacity key={fav.id} style={s.favItem} activeOpacity={0.8} onPress={() => router.push("/recipe")}>
-                <Image source={fav.source} style={s.favImg} resizeMode="cover" />
+              <TouchableOpacity key={fav.id} style={s.favItem} activeOpacity={0.8}
+                onPress={() => router.push({ pathname: "/recipe", params: { id: fav.id } } as any)}>
+                {fav.source ? (
+                  <Image source={fav.source as any} style={s.favImg} resizeMode="cover" />
+                ) : (
+                  <View style={[s.favImg, { backgroundColor: C.surfaceContainerHigh, alignItems: "center", justifyContent: "center", borderRadius: 12 }]}>
+                    <MaterialIcons name="restaurant" size={20} color={C.outlineVariant} />
+                  </View>
+                )}
                 <Text style={s.favLabel} numberOfLines={2}>{fav.title}</Text>
               </TouchableOpacity>
             ))}
@@ -266,6 +260,17 @@ export default function Home() {
               const index = getIndex() ?? 0;
               const isOpen = !editMode && expanded === member.id;
               const isRenaming = renamingId === member.id;
+              const staticRecipes = HARDCODED_RECIPES[member.id] ?? [];
+              const memberRecipes: FamilyRecipeItem[] = [
+                ...staticRecipes,
+                ...dbRecipes
+                  .filter((r: any) => (r.content as any)?.author?.toLowerCase() === member.name.toLowerCase())
+                  .map((r: any) => ({
+                    id: r.id,
+                    name: r.title,
+                    source: (r.content as any)?.photo ? { uri: (r.content as any).photo } : null,
+                  })),
+              ];
               return (
                 <ScaleDecorator activeScale={0.98}>
                   <View style={[s.memberCard, isActive && s.memberCardDragging]}>
@@ -327,7 +332,7 @@ export default function Home() {
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={s.memberName}>{member.name}</Text>
-                            <Text style={s.memberCount}>{member.count.toUpperCase()}</Text>
+                            <Text style={s.memberCount}>{`${memberRecipes.length} RECIPE${memberRecipes.length !== 1 ? "S" : ""}`}</Text>
                           </View>
                           <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={24} color={isOpen ? C.primary : C.outline} />
                         </TouchableOpacity>
@@ -336,18 +341,27 @@ export default function Home() {
 
                     {!editMode && isOpen && (
                       <View style={s.recipeList}>
-                        {member.recipes.map((recipe) => (
+                        {memberRecipes.map((recipe) => (
                           <TouchableOpacity
                             key={recipe.id}
                             style={s.recipeRow}
                             activeOpacity={0.7}
                             onPress={() => router.push({ pathname: "/recipe", params: { id: recipe.id } } as any)}
                           >
-                            <Image source={recipe.source} style={s.recipeImg} resizeMode="cover" />
+                            {recipe.source ? (
+                              <Image source={recipe.source as any} style={s.recipeImg} resizeMode="cover" />
+                            ) : (
+                              <View style={[s.recipeImg, { backgroundColor: C.surfaceContainerHigh, alignItems: "center", justifyContent: "center" }]}>
+                                <MaterialIcons name="restaurant" size={18} color={C.outlineVariant} />
+                              </View>
+                            )}
                             <Text style={s.recipeName}>{recipe.name}</Text>
                             <MaterialIcons name="chevron-right" size={18} color={C.outline} />
                           </TouchableOpacity>
                         ))}
+                        {memberRecipes.length === 0 && (
+                          <Text style={{ fontSize: 13, color: C.outline, paddingHorizontal: 12, paddingVertical: 8 }}>No recipes yet</Text>
+                        )}
                         {familyRole && member.name.toLowerCase() === familyRole.toLowerCase() && (
                           <TouchableOpacity style={s.addRecipeBtn} onPress={() => router.push("/add-recipe")}>
                             <MaterialIcons name="add" size={16} color={C.primary} />
@@ -459,9 +473,7 @@ export default function Home() {
                     setFamily((prev) => [...prev, {
                       id: Date.now().toString(),
                       name: newMemberName.trim(),
-                      count: "0 recipes",
                       avatar: newMemberAvatar,
-                      recipes: [],
                     }]);
                     setNewMemberName("");
                     setNewMemberAvatar("");

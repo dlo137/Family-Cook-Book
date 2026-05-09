@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Image,
   KeyboardAvoidingView,
   LayoutAnimation,
@@ -88,6 +89,51 @@ export default function AddRecipe() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: uid(), text: "" }]);
   const [steps, setSteps] = useState<Step[]>([{ id: uid(), text: "" }]);
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveRecipe() {
+    if (!title.trim()) {
+      Alert.alert("Name required", "Please give your recipe a name.");
+      return;
+    }
+    if (!user) return;
+    setSaving(true);
+    try {
+      const { data: memberships } = await supabase
+        .from("family_memberships")
+        .select("id, plan_id")
+        .eq("user_id", user.id)
+        .limit(1);
+      const membership = memberships?.[0];
+      if (!membership) {
+        Alert.alert("No family plan", "Join or create a family plan to save recipes.");
+        return;
+      }
+      const content = {
+        photo: photo ?? null,
+        prep_time: prepTime.trim() || null,
+        cook_time: cookTime.trim() || null,
+        servings: servings.trim() || null,
+        ingredients: ingredients.map((i) => i.text).filter(Boolean),
+        steps: steps.map((step) => step.text).filter(Boolean),
+        notes: notes.trim() || null,
+        author: author || null,
+      };
+      const { error } = await supabase.from("recipes").insert({
+        plan_id: membership.plan_id,
+        created_by_user_id: user.id,
+        owner_membership_id: membership.id,
+        title: title.trim(),
+        content,
+      });
+      if (error) throw error;
+      router.back();
+    } catch (err: any) {
+      Alert.alert("Error", err.message ?? "Failed to save recipe.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function animate() {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -161,8 +207,8 @@ export default function AddRecipe() {
             placeholder="New Recipe"
             placeholderTextColor={C.outline}
           />
-          <TouchableOpacity style={s.saveBtn} onPress={() => router.back()}>
-            <Text style={s.saveBtnText}>Save</Text>
+          <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={saveRecipe} disabled={saving}>
+            <Text style={s.saveBtnText}>{saving ? "Saving…" : "Save"}</Text>
           </TouchableOpacity>
         </View>
 
