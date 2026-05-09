@@ -213,9 +213,14 @@ export default function Subscription() {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   async function handleContinue() {
-    if (!iapService.isAvailable()) {
-      // IAP module not linked (Expo Go / web) — use simulation
+    if (iapService.isSimulationMode()) {
+      // Expo Go only — native IAP not available in this environment
       await simulatePurchase(selectedPlan);
+      return;
+    }
+
+    if (!iapService.isAvailable()) {
+      Alert.alert('Purchase Unavailable', 'In-app purchases are not available on this device. Please try again or contact support.');
       return;
     }
 
@@ -230,7 +235,11 @@ export default function Subscription() {
     try {
       await iapService.purchaseProduct(product.id ?? product.productId);
       setPurchasing(false);
-      showAccountModal();
+      Alert.alert(
+        'Purchase Confirmed!',
+        'Welcome to The Family Cookbook. Your subscription is now active.',
+        [{ text: 'Get Started', onPress: () => showAccountModal() }]
+      );
     } catch (err: any) {
       setPurchasing(false);
       const msg = String(err?.message || err);

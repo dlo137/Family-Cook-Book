@@ -69,6 +69,9 @@ class IAPService {
 
   isAvailable(): boolean { return iapAvailable && iapModule !== null; }
 
+  /** True ONLY in Expo Go — the only environment where purchase simulation is allowed. */
+  isSimulationMode(): boolean { return isExpoGo; }
+
   setDebugCallback(cb: (info: any) => void) { this.debugCallback = cb; }
   clearPurchaseLogs() { this.purchaseLogs = []; }
   getPurchaseLogs(): string[] { return [...this.purchaseLogs]; }
