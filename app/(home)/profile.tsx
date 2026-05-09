@@ -62,13 +62,14 @@ export default function ProfileScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('is_pro_version, subscription_plan, credits_current, generations_count, family_role')
+      .select('is_pro_version, subscription_plan, credits_current, generations_count, family_role, email')
       .eq('id', user.id)
       .single()
       .then(({ data }) => {
@@ -78,6 +79,7 @@ export default function ProfileScreen() {
           setCreditsLeft(data.credits_current ?? null);
           setGenerationsCount(data.generations_count ?? 0);
           setFamilyRole(data.family_role ?? null);
+          if (data.email && !data.email.startsWith('anon_')) setProfileEmail(data.email);
         }
       });
   }, [user?.id]);
@@ -150,7 +152,8 @@ export default function ProfileScreen() {
   const displayName = isAnonymous
     ? (user?.user_metadata?.display_name ?? 'Guest')
     : (user?.user_metadata?.display_name ?? user?.email?.split('@')[0] ?? 'User');
-  const email = isAnonymous ? 'Anonymous Account' : (user?.email ?? '');
+  const authEmail = user?.email ?? '';
+  const email = profileEmail || (authEmail.startsWith('anon_') ? '' : authEmail);
   const initials = displayName.charAt(0).toUpperCase();
 
   function openEdit() {
@@ -225,7 +228,11 @@ export default function ProfileScreen() {
               const { error } = await supabase.functions.invoke('delete-account');
               if (error) throw error;
               await signOut();
-              router.replace('/onboarding');
+              Alert.alert(
+                'Account Deleted',
+                'Your account and all associated data have been permanently deleted.',
+                [{ text: 'OK', onPress: () => router.replace('/onboarding') }]
+              );
             } catch (err: any) {
               Alert.alert('Error', err?.message ?? 'Failed to delete account. Please try again.');
             }

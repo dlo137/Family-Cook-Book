@@ -210,9 +210,7 @@ function ConfirmationLoading() {
   }, [percent]);
 
   const message =
-    percent < 25 ? 'Creating your cookbook...' :
-    percent < 50 ? 'Adding recipe templates...' :
-    percent < 75 ? 'Setting up your collection...' :
+    percent < 50 ? 'Creating your cookbook...' :
     percent < 100 ? 'Almost ready...' : 'Ready!';
 
   return (
@@ -248,7 +246,7 @@ function ConfirmationStep2({ onNext }: { onNext: () => void }) {
           <Text style={s.title}>Become the Reason Traditions Last</Text>
           <GraphCard />
           <Text style={s.subtitle}>
-            You're on your way! Every saved recipe brings your {'\n'} family memories, traditions, and home cooked meals together in one place.
+            You're on your way! Every saved recipe brings your {'\n'} <Text style={{ fontWeight: 'bold', fontStyle: 'italic' }}>family memories, traditions, and home cooked meals</Text> together in one place.
           </Text>
         </View>
 
@@ -288,7 +286,7 @@ export default function Confirmation() {
         <View style={s.content}>
           <Text style={s.title}>Those are good goals!</Text>
           <Text style={s.subtitle}>
-            <Text style={s.stat}>92%</Text> of users say The Family Cookbookno  helped them{' '}
+            <Text style={s.stat}>92%</Text> of users say The Family Cookbook helped them{' '}
             <Text style={s.highlight}>{phrase}</Text> without even thinking about it.
           </Text>
           <View style={s.blobWrap}>
@@ -388,6 +386,6 @@ const sl = StyleSheet.create({
   },
   barFill: {
     height: '100%', borderRadius: 999,
-    backgroundColor: C.primary,
+    backgroundColor: '#3A7BD5',
   },
 });

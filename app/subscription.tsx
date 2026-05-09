@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  Easing,
   Image,
   Modal,
   Pressable,
@@ -29,6 +30,15 @@ const C = {
   accent: '#C97B63',
 };
 
+const TESTIMONIALS = [
+  { quote: "I finally have all of grandma's recipes in one place. This app is a treasure.", name: 'Renata', age: 42, stars: 5 },
+  { quote: "My kids will always have access to our family traditions. Worth every penny.", name: 'Marcus', age: 38, stars: 5 },
+  { quote: "So easy to use. I saved 30 recipes from my mom before she passed. Priceless.", name: 'Delores', age: 61, stars: 5 },
+];
+const T_CARD_W = 220;
+const T_GAP = 12;
+const T_TOTAL = (T_CARD_W + T_GAP) * TESTIMONIALS.length;
+
 type PlanKey = 'monthly' | 'lifetime';
 
 export default function Subscription() {
@@ -46,10 +56,23 @@ export default function Subscription() {
   const [discountVisible, setDiscountVisible] = useState(false);
 
   const isRestoringRef = useRef(false);
+  const marqueeX = useRef(new Animated.Value(0)).current;
 
   // Fade in on mount
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  }, []);
+
+  // Testimonial marquee
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(marqueeX, {
+        toValue: -T_TOTAL,
+        duration: 24000,
+        useNativeDriver: true,
+        easing: Easing.linear,
+      })
+    ).start();
   }, []);
 
   // Fetch products on mount
@@ -160,7 +183,7 @@ export default function Subscription() {
     router.push('/account-promo');
   }
 
-  const ctaLabel = !iapReady || loadingProducts ? 'Loading...' : purchasing ? 'Processing...' : 'Get Started';
+  const ctaLabel = !iapReady || loadingProducts ? 'Loading...' : purchasing ? 'Processing...' : 'Start Saving Recipes';
   const ctaDisabled = !iapReady || loadingProducts || purchasing;
 
   return (
@@ -170,15 +193,15 @@ export default function Subscription() {
         <TouchableOpacity onPress={handleClose} style={s.iconBtn} activeOpacity={0.7}>
           <MaterialIcons name="close" size={22} color={C.onSurfaceVariant} />
         </TouchableOpacity>
+        <View style={{ width: 36 }} />
         <TouchableOpacity onPress={handleRestore} activeOpacity={0.7}>
           <Text style={s.restore}>Restore Purchases</Text>
         </TouchableOpacity>
-        <View style={{ width: 36 }} />
       </View>
 
       <Animated.ScrollView
         style={{ opacity: fadeAnim, flex: 1 }}
-        contentContainerStyle={[s.scroll, { paddingBottom: 24 }]}
+        contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Icon */}
@@ -186,31 +209,14 @@ export default function Subscription() {
           <Image source={require('../assets/icon.png')} style={s.appIcon} />
         </View>
 
-        <Text style={s.title}>Grandma's CookBook</Text>
+        <Text style={s.title}>Never Lose Another{'\n'}Family Recipe</Text>
+
         <Text style={s.subtitle}>
-          Some things are too precious to forget. Your family’s recipes, always there when you need them.
+          Some things are too precious to forget... Keep all the meals, memories, and traditions you love!
         </Text>
 
-        {/* Features */}
-        <View style={s.features}>
-          {[
-            'Unlimited family member collections',
-            'Full step-by-step cook mode',
-            'Unlimited recipe storage',
-            'Family sharing & collaboration',
-          ].map((f) => (
-            <View key={f} style={s.featureRow}>
-              <MaterialIcons name="check-circle" size={20} color={C.primary} />
-              <Text style={s.featureText}>{f}</Text>
-            </View>
-          ))}
-        </View>
-
-      </Animated.ScrollView>
-
-      {/* Fixed bottom: plan cards + button */}
-      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={s.plans}>
+        {/* Plan cards */}
+        <View style={[s.plans, { width: '100%', marginTop: 16, marginBottom: 16 }]}>
           {PLANS.map((plan) => {
             const active = selectedPlan === plan.planKey;
             const liveProduct = products.find((p: any) => (p.id ?? p.productId) === plan.id);
@@ -238,13 +244,64 @@ export default function Subscription() {
                   </View>
                   <View style={s.planPricing}>
                     <Text style={[s.planPrice, active && s.planPriceActive]}>{displayPrice}</Text>
-                    <Text style={s.planPeriod}>{plan.period}</Text>
+                    {!!plan.period && <Text style={s.planPeriod}>{plan.period}</Text>}
                   </View>
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
+
+        {/* Testimonials title */}
+        <Text style={s.testimonialTitle}>
+          <Text style={s.testimonialTitleBlue}>The easiest way{'\n'}</Text>
+          to save & share loved family meals.
+        </Text>
+
+        {/* Testimonials marquee */}
+        <View style={s.testimonialTrack}>
+          <Animated.View style={[s.testimonialRow, { transform: [{ translateX: marqueeX }] }]}>
+            {[...TESTIMONIALS, ...TESTIMONIALS].map((t, i) => (
+              <View key={i} style={s.testimonialCard}>
+                <View style={s.testimonialStars}>
+                  {Array.from({ length: t.stars }).map((_, si) => (
+                    <MaterialIcons key={si} name="star" size={14} color="#F4A936" />
+                  ))}
+                </View>
+                <Text style={s.testimonialQuote}>{t.quote}</Text>
+                <View style={s.testimonialFooter}>
+                  <View style={s.testimonialAvatar}>
+                    <MaterialIcons name="person" size={16} color={C.outline} />
+                  </View>
+                  <Text style={s.testimonialName}>{t.name}, {t.age}</Text>
+                </View>
+              </View>
+            ))}
+          </Animated.View>
+        </View>
+
+        {/* Features title */}
+        <Text style={s.featuresTitle}>Everything you need</Text>
+
+        {/* Features */}
+        <View style={s.features}>
+          {[
+            'Keep recipes organized forever',
+            'Access recipes anytime you cook',
+            'Share recipes with family members',
+            'Preserve traditions across generations',
+          ].map((f) => (
+            <View key={f} style={s.featureRow}>
+              <MaterialIcons name="check-circle" size={20} color={C.primary} />
+              <Text style={s.featureText}>{f}</Text>
+            </View>
+          ))}
+        </View>
+
+      </Animated.ScrollView>
+
+      {/* Fixed bottom: button */}
+      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
           style={[s.ctaBtn, ctaDisabled && s.ctaBtnDisabled]}
           onPress={handleContinue}
@@ -252,9 +309,9 @@ export default function Subscription() {
           disabled={ctaDisabled}
         >
           <Text style={s.ctaText}>{ctaLabel}</Text>
-          {!ctaDisabled && <MaterialIcons name="arrow-forward" size={18} color={C.onSurface} />}
+          {!ctaDisabled && <MaterialIcons name="arrow-forward" size={18} color="#fff" />}
         </TouchableOpacity>
-        <Text style={s.cancelText}>Cancel Anytime. No Commitment.</Text>
+        <Text style={s.cancelText}>{selectedPlan === 'lifetime' ? 'One Purchase. Lifetime Access.' : 'Cancel Anytime. No Commitment.'}</Text>
       </View>
 
       {/* Discount modal — shown when user tries to close */}
@@ -301,7 +358,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
   },
   iconBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  restore: { fontSize: 13, color: C.outline, fontWeight: '500' },
+  restore: { fontSize: 11, color: '#ABABAB', fontWeight: '400' },
 
   scroll: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 8 },
 
@@ -320,9 +377,33 @@ const s = StyleSheet.create({
     textAlign: 'center', lineHeight: 22, maxWidth: 340, marginBottom: 24,
   },
 
+  featuresTitle: {
+    fontSize: 22, fontWeight: '800', color: '#3A7BD5', fontStyle: 'italic',
+    textAlign: 'center', marginBottom: 16, marginTop: 8,
+  },
   features: { width: '100%', gap: 10, marginBottom: 28 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   featureText: { fontSize: 15, color: C.onSurface, fontWeight: '500', flex: 1 },
+
+  testimonialTrack: { width: '100%', overflow: 'hidden', marginBottom: 24 },
+  testimonialTitle: {
+    fontSize: 22, fontWeight: '800', color: C.onSurface,
+    textAlign: 'center', lineHeight: 30, marginBottom: 16, marginTop: 24, paddingVertical: 12,
+  },
+  testimonialTitleBlue: { color: '#3A7BD5', fontStyle: 'italic' },
+  testimonialRow: { flexDirection: 'row', gap: T_GAP },
+  testimonialCard: {
+    width: T_CARD_W, backgroundColor: '#FAFAF7', borderRadius: 14,
+    padding: 14, borderLeftWidth: 3, borderLeftColor: C.primary,
+  },
+  testimonialStars: { flexDirection: 'row', gap: 2, marginBottom: 8 },
+  testimonialQuote: { fontSize: 12, color: C.onSurface, lineHeight: 18, fontStyle: 'italic', marginBottom: 10 },
+  testimonialFooter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  testimonialAvatar: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: C.surfaceContainerLow, alignItems: 'center', justifyContent: 'center',
+  },
+  testimonialName: { fontSize: 11, color: C.onSurface, fontWeight: '600' },
 
   plans: { width: '100%', gap: 12, marginBottom: 12 },
   planCard: {
@@ -366,12 +447,12 @@ const s = StyleSheet.create({
   },
   ctaBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: C.secondaryContainer, paddingVertical: 18, borderRadius: 999,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
+    backgroundColor: '#E8900A', paddingVertical: 18, borderRadius: 999,
+    shadowColor: '#E8900A', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
   },
   ctaBtnDisabled: { opacity: 0.6 },
-  ctaText: { fontSize: 17, fontWeight: '800', color: C.onSurface, letterSpacing: -0.2 },
+  ctaText: { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
   cancelText: { fontSize: 12, color: C.outline, textAlign: 'center', marginTop: 8 },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },

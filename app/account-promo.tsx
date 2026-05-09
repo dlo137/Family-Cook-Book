@@ -32,6 +32,7 @@ export default function AccountPromo() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +50,7 @@ export default function AccountPromo() {
         const { data, error: updateError } = await supabase.auth.updateUser({
           email: email.trim(),
           password,
+          data: { display_name: name.trim() },
         });
         if (updateError) throw updateError;
         // Update profile row with new info
@@ -57,13 +59,18 @@ export default function AccountPromo() {
           display_name: name.trim(),
           has_seen_paywall: true,
           is_pro_version: true,
+          ...(familyRole ? { family_role: familyRole } : {}),
         }).eq('id', user.id);
         if (profileError) console.warn('[AccountPromo] profile update error:', profileError);
         router.replace('/(home)/home');
         return;
       }
       // Otherwise, sign up as new user (fallback)
-      const { data, error: signUpError } = await supabase.auth.signUp({ email: email.trim(), password });
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { display_name: name.trim() } },
+      });
       if (signUpError) throw signUpError;
       if (data.user) {
         const { error: profileError } = await supabase.from('profiles').upsert(
@@ -73,6 +80,7 @@ export default function AccountPromo() {
             display_name: name.trim(),
             has_seen_paywall: true,
             is_pro_version: true,
+            ...(familyRole ? { family_role: familyRole } : {}),
           },
           { onConflict: 'id' }
         );
@@ -134,6 +142,20 @@ export default function AccountPromo() {
             <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={s.eyeBtn} activeOpacity={0.6}>
               <MaterialIcons name={showPassword ? 'visibility-off' : 'visibility'} size={20} color={C.outline} />
             </TouchableOpacity>
+          </View>
+
+          <Text style={s.roleLabel}>Your role in the family</Text>
+          <View style={s.roleChips}>
+            {['Mom', 'Dad', 'Grandma', 'Grandpa', 'Sister', 'Brother', 'Aunt', 'Uncle', 'Other'].map((role) => (
+              <TouchableOpacity
+                key={role}
+                style={[s.roleChip, familyRole === role && s.roleChipActive]}
+                onPress={() => setFamilyRole(familyRole === role ? null : role)}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.roleChipText, familyRole === role && s.roleChipTextActive]}>{role}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {error && <Text style={s.error}>{error}</Text>}
@@ -224,4 +246,13 @@ const s = StyleSheet.create({
   btnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
   skip: { alignSelf: 'center' },
   skipText: { fontSize: 13, color: C.outline, fontWeight: '500' },
+  roleLabel: { fontSize: 13, color: C.onSurfaceVariant, fontWeight: '600', marginBottom: 10, marginTop: 4 },
+  roleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  roleChip: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+    borderWidth: 1, borderColor: C.border, backgroundColor: '#fff',
+  },
+  roleChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  roleChipText: { fontSize: 13, color: C.onSurfaceVariant, fontWeight: '500' },
+  roleChipTextActive: { color: '#fff', fontWeight: '700' },
 });
