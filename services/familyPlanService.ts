@@ -89,12 +89,14 @@ export async function inviteMember(
 export async function acceptInvite(
   token: string,
   userId: string,
-  displayName: string
+  displayName: string,
+  relationship?: string
 ): Promise<FamilyMembership> {
   const { data, error } = await supabase.rpc("accept_family_invite", {
     p_token: token,
     p_user_id: userId,
     p_display_name: displayName,
+    p_relationship: relationship ?? null,
   });
 
   if (error) {

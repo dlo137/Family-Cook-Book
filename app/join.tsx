@@ -29,6 +29,20 @@ import {
 type Step = "checking" | "auth" | "name" | "done";
 type AuthMode = "signup" | "signin";
 
+const RELATIONSHIPS = [
+  "Spouse / Partner",
+  "Parent",
+  "Child",
+  "Sibling",
+  "Grandparent",
+  "Grandchild",
+  "Aunt / Uncle",
+  "Niece / Nephew",
+  "Cousin",
+  "Friend",
+  "Other",
+];
+
 export default function JoinScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
@@ -49,6 +63,7 @@ export default function JoinScreen() {
 
   // Name step state
   const [displayName, setDisplayName] = useState("");
+  const [relationship, setRelationship] = useState<string | null>(null);
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
@@ -123,12 +138,13 @@ export default function JoinScreen() {
     if (!token) { setJoinError("Invalid invite link — no token found."); return; }
     if (!userId) { setJoinError("No session found. Please go back and sign in."); return; }
     if (!displayName.trim()) { setJoinError("Please enter a display name."); return; }
+    if (!relationship) { setJoinError("Please select your relationship to the plan owner."); return; }
 
     setJoinError(null);
     setJoinLoading(true);
 
     try {
-      await acceptInvite(token, userId, displayName.trim());
+      await acceptInvite(token, userId, displayName.trim(), relationship ?? undefined);
       setStep("done");
       setTimeout(() => router.replace("/(home)/home"), 1200);
     } catch (e: any) {
@@ -271,34 +287,53 @@ export default function JoinScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Text style={styles.title}>One Last Step</Text>
-      <Text style={styles.subtitle}>
-        Choose a display name that your family will see.
-      </Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Display name (e.g. Grandma Rose)"
-        value={displayName}
-        onChangeText={(v) => { setDisplayName(v); setJoinError(null); }}
-        autoFocus
-        returnKeyType="done"
-        onSubmitEditing={handleJoin}
-      />
-
-      {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-
-      <Pressable
-        style={[styles.button, joinLoading && styles.buttonDisabled]}
-        onPress={handleJoin}
-        disabled={joinLoading}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {joinLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Join Family</Text>
-        )}
-      </Pressable>
+        <Text style={styles.title}>One Last Step</Text>
+        <Text style={styles.subtitle}>
+          Choose a display name and your relationship to the plan owner.
+        </Text>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Display name (e.g. Grandma Rose)"
+          value={displayName}
+          onChangeText={(v) => { setDisplayName(v); setJoinError(null); }}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={handleJoin}
+        />
+
+        <Text style={styles.relationshipLabel}>Your relationship to the owner</Text>
+        <View style={styles.chipsWrap}>
+          {RELATIONSHIPS.map((r) => (
+            <Pressable
+              key={r}
+              style={[styles.chip, relationship === r && styles.chipActive]}
+              onPress={() => { setRelationship(r); setJoinError(null); }}
+            >
+              <Text style={[styles.chipText, relationship === r && styles.chipTextActive]}>{r}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+
+        <Pressable
+          style={[styles.button, joinLoading && styles.buttonDisabled]}
+          onPress={handleJoin}
+          disabled={joinLoading}
+        >
+          {joinLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Join Family</Text>
+          )}
+        </Pressable>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -349,6 +384,34 @@ const styles = StyleSheet.create({
 
   toggleBtn: { marginTop: 20, alignItems: "center" },
   toggleText: { color: "#4D6A28", fontSize: 15, textAlign: "center" },
+
+  relationshipLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#404E25",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "#BAC898",
+    backgroundColor: "#fff",
+  },
+  chipActive: {
+    backgroundColor: "#4D6A28",
+    borderColor: "#4D6A28",
+  },
+  chipText: { fontSize: 14, color: "#404E25", fontWeight: "500" },
+  chipTextActive: { color: "#fff" },
 
   errorHeading: { fontSize: 22, fontWeight: "700", color: "#1C2110", marginBottom: 12 },
   errorBody: { fontSize: 15, color: "#404E25", textAlign: "center", lineHeight: 22 },

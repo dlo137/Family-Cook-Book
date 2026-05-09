@@ -37,6 +37,7 @@ export interface FamilyMembership {
   user_id: string;
   role: MemberRole;
   display_name: string;
+  relationship: string | null;
   invited_by: string | null;
   joined_at: string;
 }
@@ -47,6 +48,7 @@ export interface FamilyMembershipInsert {
   user_id: string;
   role?: MemberRole;
   display_name: string;
+  relationship?: string | null;
   invited_by?: string | null;
   joined_at?: string;
 }
