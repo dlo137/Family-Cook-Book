@@ -11,7 +11,7 @@
  */
 
 export const PRODUCT_IDS = {
-  monthly:  'product_id_monthly_cookbook',
+  monthly:  'Cookbook_Monthly_Plan',
   lifetime: 'product_id_lifetime',
 };
 

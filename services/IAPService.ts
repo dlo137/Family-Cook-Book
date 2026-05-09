@@ -356,10 +356,13 @@ class IAPService {
       // If listener fires but no active purchase (re-delivered old transaction),
       // just finish it to clear the StoreKit queue without granting entitlement.
       if (source === 'listener' && !inFlight) {
-        this.plog('⚠️ inFlight=false — finishing transaction without entitlement');
+        this.plog('⚠️ inFlight=false — finishing stale transaction without entitlement');
         try {
           await iapModule.finishTransaction({ purchase, isConsumable: false });
-        } catch {}
+          this.plog('✅ Stale transaction cleared');
+        } catch (e: any) {
+          this.plog(`⚠️ finishTransaction (stale) failed: ${e?.message} — transaction may re-deliver`);
+        }
         return false;
       }
 
