@@ -17,9 +17,12 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.watsonsweb.Grandmascookbook",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Grandma's Cookbook uses your camera to capture photos of your family recipes.",
+        "NSPhotoLibraryUsageDescription": "Grandma's Cookbook accesses your photo library so you can add photos to your recipes and profile.",
+        "NSPhotoLibraryAddUsageDescription": "Grandma's Cookbook saves recipe photos to your photo library."
       },
-      "buildNumber": "18"
+      "buildNumber": "19"
     },
     "android": {
       "adaptiveIcon": {
@@ -41,7 +44,8 @@
         {
           "paymentProvider": "Apple"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "router": {},

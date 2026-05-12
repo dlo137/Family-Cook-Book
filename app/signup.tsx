@@ -41,6 +41,15 @@ export default function Signup() {
     if (!validate()) return;
     setError(null);
     setLoading(true);
+
+    // Try sign-in first to avoid triggering Supabase's duplicate-email security email
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (!signInError && signInData.user) {
+      setLoading(false);
+      router.replace("/subscription");
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setLoading(false);

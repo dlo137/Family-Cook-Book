@@ -13,7 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Audio } from "expo-av";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import type { AudioPlayer } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -62,7 +63,7 @@ export default function Other() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("s1");
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const tickSoundRef = useRef<Audio.Sound | null>(null);
+  const tickSoundRef = useRef<AudioPlayer | null>(null);
 
   function toggleFavorite(id: string) {
     setFavorites((prev) => {
@@ -73,11 +74,13 @@ export default function Other() {
   }
 
   useEffect(() => {
-    Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-    Audio.Sound.createAsync(require("../../assets/sounds/timer-beep.mp3"))
-      .then(({ sound }) => { tickSoundRef.current = sound; })
-      .catch((e) => console.warn("Could not load tick sound:", e));
-    return () => { tickSoundRef.current?.unloadAsync(); };
+    setAudioModeAsync({ playsInSilentModeIOS: true }).catch(() => {});
+    try {
+      tickSoundRef.current = createAudioPlayer(require("../../assets/sounds/timer-beep.mp3"));
+    } catch (e) {
+      console.warn("Could not load tick sound:", e);
+    }
+    return () => { tickSoundRef.current?.remove(); };
   }, []);
 
   useEffect(() => {
@@ -120,7 +123,10 @@ export default function Other() {
 
   async function playTick() {
     try {
-      await tickSoundRef.current?.replayAsync();
+      if (tickSoundRef.current) {
+        tickSoundRef.current.seekTo(0);
+        tickSoundRef.current.play();
+      }
     } catch (e) {
       console.warn("Countdown sound error:", e);
     }
@@ -139,8 +145,8 @@ export default function Other() {
     return () => { if (intervalRef.current) clearTimeout(intervalRef.current); };
   }, [countdown]);
 
-  const allRecipes = [...STATIC_RECIPES, ...dbRecipes];
-  const filters = ["All", "Favorites", ...Array.from(new Set(allRecipes.map((r) => r.by)))];
+  const allRecipes = [...dbRecipes, ...STATIC_RECIPES];
+  const filters = ["Favorites", "All", ...Array.from(new Set(allRecipes.map((r) => r.by)))];
 
   const filtered = allRecipes.filter((r) => {
     const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase());
@@ -174,7 +180,7 @@ export default function Other() {
             onPress={() => {
               setCountdown(null);
               if (intervalRef.current) clearTimeout(intervalRef.current);
-              tickSoundRef.current?.stopAsync();
+              tickSoundRef.current?.pause();
             }}
           >
             <Text style={s.countdownCancelText}>Cancel</Text>

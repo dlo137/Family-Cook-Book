@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -17,10 +18,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { createFamilyPlan } from "@/services/familyPlanService";
+import DraggableFlatList, { ScaleDecorator, RenderItemParams } from "react-native-draggable-flatlist";
 
 // Run: npx expo install expo-image-picker
 
@@ -56,7 +59,7 @@ const PHOTO_TEMPLATES = [
 ];
 
 type Ingredient = { id: string; text: string };
-type Step = { id: string; text: string };
+type Step = { id: string; text: string; ingredientIds: string[] };
 
 let _id = 0;
 const uid = () => String(++_id);
@@ -65,12 +68,15 @@ export default function AddRecipe() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = !!editId;
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
+  const [loadingEdit, setLoadingEdit] = useState(isEditing);
 
   useEffect(() => {
     if (!user) return;
@@ -83,13 +89,46 @@ export default function AddRecipe() {
         if (data?.family_role) setAuthor(data.family_role);
       });
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!editId) return;
+    supabase
+      .from("recipes")
+      .select("title, content")
+      .eq("id", editId)
+      .single()
+      .then(({ data }) => {
+        if (!data) { setLoadingEdit(false); return; }
+        const c = data.content as any ?? {};
+        setTitle(data.title ?? "");
+        if (c.photo) setPhoto(c.photo);
+        if (c.prep_time) setPrepTime(c.prep_time);
+        if (c.cook_time) setCookTime(c.cook_time);
+        if (c.servings) setServings(c.servings);
+        if (c.notes) setNotes(c.notes);
+        if (c.author) setAuthor(c.author);
+        if (Array.isArray(c.ingredients) && c.ingredients.length > 0) {
+          setIngredients(c.ingredients.map((text: string) => ({ id: uid(), text })));
+        }
+        if (Array.isArray(c.steps) && c.steps.length > 0) {
+          setSteps(c.steps.map((step: any) => ({
+            id: uid(),
+            text: typeof step === "string" ? step : step.instruction ?? "",
+            ingredientIds: typeof step === "string" ? [] : (step.ingredientIds ?? []),
+          })));
+        }
+        setLoadingEdit(false);
+      });
+  }, [editId]);
   const [prepTime, setPrepTime] = useState("");
   const [cookTime, setCookTime] = useState("");
   const [servings, setServings] = useState("");
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ id: uid(), text: "" }]);
-  const [steps, setSteps] = useState<Step[]>([{ id: uid(), text: "" }]);
+  const [steps, setSteps] = useState<Step[]>([{ id: uid(), text: "", ingredientIds: [] }]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [openIngPicker, setOpenIngPicker] = useState<string | null>(null);
+  const [metaPicker, setMetaPicker] = useState<"prep" | "cook" | "servings" | null>(null);
 
   async function saveRecipe() {
     if (!title.trim()) {
@@ -99,33 +138,54 @@ export default function AddRecipe() {
     if (!user) return;
     setSaving(true);
     try {
-      const { data: memberships } = await supabase
-        .from("family_memberships")
-        .select("id, plan_id")
-        .eq("user_id", user.id)
-        .limit(1);
-      const membership = memberships?.[0];
-      if (!membership) {
-        Alert.alert("No family plan", "Join or create a family plan to save recipes.");
-        return;
+      let membership: { id: string; plan_id: string } | undefined;
+      if (!isEditing) {
+        let { data: memberships } = await supabase
+          .from("family_memberships")
+          .select("id, plan_id")
+          .eq("user_id", user.id)
+          .limit(1);
+        if (!memberships?.[0]) {
+          const displayName = user.user_metadata?.display_name ?? user.email?.split("@")[0] ?? "Owner";
+          await createFamilyPlan(user.id, displayName);
+          const { data: refreshed } = await supabase
+            .from("family_memberships")
+            .select("id, plan_id")
+            .eq("user_id", user.id)
+            .limit(1);
+          memberships = refreshed;
+        }
+        membership = memberships?.[0];
+        if (!membership) throw new Error("Failed to set up your cookbook. Please try again.");
       }
+      const validIngredients = ingredients.filter((i) => i.text.trim());
+      const ingIdMap: Record<string, string> = {};
+      validIngredients.forEach((ing, index) => { ingIdMap[ing.id] = `ing-${index}`; });
+
       const content = {
         photo: photo ?? null,
         prep_time: prepTime.trim() || null,
         cook_time: cookTime.trim() || null,
         servings: servings.trim() || null,
-        ingredients: ingredients.map((i) => i.text).filter(Boolean),
-        steps: steps.map((step) => step.text).filter(Boolean),
+        ingredients: validIngredients.map((i) => i.text.trim()),
+        steps: steps
+          .filter((s) => s.text.trim())
+          .map((s) => ({
+            instruction: s.text.trim(),
+            ingredientIds: s.ingredientIds.filter((id) => ingIdMap[id]).map((id) => ingIdMap[id]),
+          })),
         notes: notes.trim() || null,
         author: author || null,
       };
-      const { error } = await supabase.from("recipes").insert({
-        plan_id: membership.plan_id,
-        created_by_user_id: user.id,
-        owner_membership_id: membership.id,
-        title: title.trim(),
-        content,
-      });
+      const { error } = isEditing
+        ? await supabase.from("recipes").update({ title: title.trim(), content }).eq("id", editId)
+        : await supabase.from("recipes").insert({
+            plan_id: membership.plan_id,
+            created_by_user_id: user.id,
+            owner_membership_id: membership.id,
+            title: title.trim(),
+            content,
+          });
       if (error) throw error;
       router.back();
     } catch (err: any) {
@@ -143,7 +203,7 @@ export default function AddRecipe() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") return;
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
@@ -177,7 +237,19 @@ export default function AddRecipe() {
 
   function addStep() {
     animate();
-    setSteps((prev) => [...prev, { id: uid(), text: "" }]);
+    setSteps((prev) => [...prev, { id: uid(), text: "", ingredientIds: [] }]);
+  }
+
+
+  function toggleStepIngredient(stepId: string, ingId: string) {
+    setSteps((prev) => prev.map((s) =>
+      s.id !== stepId ? s : {
+        ...s,
+        ingredientIds: s.ingredientIds.includes(ingId)
+          ? s.ingredientIds.filter((id) => id !== ingId)
+          : [...s.ingredientIds, ingId],
+      }
+    ));
   }
 
   function removeStep(id: string) {
@@ -187,6 +259,23 @@ export default function AddRecipe() {
 
   function updateStep(id: string, text: string) {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, text } : s)));
+  }
+
+  const PREP_OPTIONS = ["5 min", "10 min", "15 min", "20 min", "30 min", "45 min", "1 hr", "1.5 hr", "2 hr"];
+  const COOK_OPTIONS = ["10 min", "15 min", "20 min", "30 min", "45 min", "1 hr", "1.5 hr", "2 hr", "3 hr", "4 hr"];
+  const SERVES_OPTIONS = ["1", "2", "3", "4", "5", "6", "8", "10", "12+"];
+
+  const metaPickerOptions = metaPicker === "prep" ? PREP_OPTIONS : metaPicker === "cook" ? COOK_OPTIONS : SERVES_OPTIONS;
+  const metaPickerValue = metaPicker === "prep" ? prepTime : metaPicker === "cook" ? cookTime : servings;
+  const metaPickerSet = metaPicker === "prep" ? setPrepTime : metaPicker === "cook" ? setCookTime : setServings;
+  const metaPickerLabel = metaPicker === "prep" ? "Prep Time" : metaPicker === "cook" ? "Cook Time" : "Servings";
+
+  if (loadingEdit) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
   }
 
   return (
@@ -200,15 +289,9 @@ export default function AddRecipe() {
           <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={24} color={C.primary} />
           </TouchableOpacity>
-          <TextInput
-            style={s.topBarTitle}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="New Recipe"
-            placeholderTextColor={C.outline}
-          />
+          <Text style={s.topBarLabel}>{isEditing ? "Edit Recipe" : "New Recipe"}</Text>
           <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={saveRecipe} disabled={saving}>
-            <Text style={s.saveBtnText}>{saving ? "Saving…" : "Save"}</Text>
+            <Text style={s.saveBtnText}>{saving ? "Saving…" : isEditing ? "Update" : "Save"}</Text>
           </TouchableOpacity>
         </View>
 
@@ -293,67 +376,113 @@ export default function AddRecipe() {
             />
           </View>
 
-          {/* Meta Row */}
+          {/* Recipe Title */}
+          <TextInput
+            style={s.titleInput}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Recipe Name"
+            placeholderTextColor={C.outline}
+          />
+
+          {/* Meta Row — dropdown pickers */}
           <View style={s.metaRow}>
-            <View style={s.metaItem}>
+            <TouchableOpacity style={s.metaItem} onPress={() => setMetaPicker("prep")} activeOpacity={0.7}>
               <MaterialIcons name="timer" size={18} color={C.primary} />
-              <TextInput
-                style={s.metaInput}
-                value={prepTime}
-                onChangeText={setPrepTime}
-                placeholder="Prep"
-                placeholderTextColor={C.outline}
-                keyboardType="default"
-              />
-            </View>
+              <Text style={[s.metaPickerText, !prepTime && s.metaPickerPlaceholder]}>
+                {prepTime || "Prep"}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={16} color={C.outline} />
+            </TouchableOpacity>
             <View style={s.metaDivider} />
-            <View style={s.metaItem}>
+            <TouchableOpacity style={s.metaItem} onPress={() => setMetaPicker("cook")} activeOpacity={0.7}>
               <MaterialIcons name="outdoor-grill" size={18} color={C.primary} />
-              <TextInput
-                style={s.metaInput}
-                value={cookTime}
-                onChangeText={setCookTime}
-                placeholder="Cook"
-                placeholderTextColor={C.outline}
-              />
-            </View>
+              <Text style={[s.metaPickerText, !cookTime && s.metaPickerPlaceholder]}>
+                {cookTime || "Cook"}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={16} color={C.outline} />
+            </TouchableOpacity>
             <View style={s.metaDivider} />
-            <View style={s.metaItem}>
+            <TouchableOpacity style={s.metaItem} onPress={() => setMetaPicker("servings")} activeOpacity={0.7}>
               <MaterialIcons name="restaurant" size={18} color={C.primary} />
-              <TextInput
-                style={s.metaInput}
-                value={servings}
-                onChangeText={setServings}
-                placeholder="Serves"
-                placeholderTextColor={C.outline}
-                keyboardType="numeric"
-              />
-            </View>
+              <Text style={[s.metaPickerText, !servings && s.metaPickerPlaceholder]}>
+                {servings ? `Serves ${servings}` : "Serves"}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={16} color={C.outline} />
+            </TouchableOpacity>
           </View>
+
+          {/* Meta Picker Modal */}
+          <Modal visible={!!metaPicker} transparent animationType="slide" onRequestClose={() => setMetaPicker(null)}>
+            <Pressable style={s.photoModalOverlay} onPress={() => setMetaPicker(null)}>
+              <Pressable style={s.photoModalSheet} onPress={() => {}}>
+                <View style={s.photoModalHandle} />
+                <Text style={s.photoModalTitle}>{metaPickerLabel}</Text>
+                <View style={s.pickerGrid}>
+                  {metaPickerOptions.map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[s.pickerChip, metaPickerValue === opt && s.pickerChipActive]}
+                      onPress={() => { metaPickerSet(opt); setMetaPicker(null); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.pickerChipText, metaPickerValue === opt && s.pickerChipTextActive]}>{opt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {metaPickerValue && !metaPickerOptions.includes(metaPickerValue) && (
+                    <TouchableOpacity
+                      style={[s.pickerChip, s.pickerChipActive]}
+                      onPress={() => setMetaPicker(null)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[s.pickerChipText, s.pickerChipTextActive]}>{metaPickerValue}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <TouchableOpacity style={s.pickerClear} onPress={() => { metaPickerSet(""); setMetaPicker(null); }}>
+                  <Text style={s.pickerClearText}>Clear</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </Modal>
 
           {/* Ingredients */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Ingredients</Text>
-            {ingredients.map((ing, index) => (
-              <View key={ing.id} style={s.listRow}>
-                <View style={s.listBullet}>
-                  <Text style={s.listBulletText}>{index + 1}</Text>
-                </View>
-                <TextInput
-                  style={s.listInput}
-                  value={ing.text}
-                  onChangeText={(t) => updateIngredient(ing.id, t)}
-                  placeholder="e.g. 1 cup flour"
-                  placeholderTextColor={C.outline}
-                  returnKeyType="next"
-                />
-                {ingredients.length > 1 && (
-                  <TouchableOpacity onPress={() => removeIngredient(ing.id)} style={s.deleteBtn}>
-                    <MaterialIcons name="close" size={16} color={C.outline} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
+            <DraggableFlatList
+              data={ingredients}
+              keyExtractor={(ing) => ing.id}
+              onDragEnd={({ data }) => setIngredients(data)}
+              scrollEnabled={false}
+              renderItem={({ item: ing, drag, isActive, getIndex }: RenderItemParams<Ingredient>) => {
+                const index = getIndex() ?? 0;
+                return (
+                  <ScaleDecorator activeScale={0.98}>
+                    <View style={[s.listRow, isActive && { opacity: 0.85 }]}>
+                      <View style={s.listBullet}>
+                        <Text style={s.listBulletText}>{index + 1}</Text>
+                      </View>
+                      <TextInput
+                        style={s.listInput}
+                        value={ing.text}
+                        onChangeText={(t) => updateIngredient(ing.id, t)}
+                        placeholder="e.g. 1 cup flour"
+                        placeholderTextColor={C.outline}
+                        returnKeyType="next"
+                      />
+                      <TouchableOpacity onLongPress={drag} delayLongPress={100} hitSlop={6} style={s.dragHandle}>
+                        <MaterialIcons name="drag-handle" size={20} color={C.outlineVariant} />
+                      </TouchableOpacity>
+                      {ingredients.length > 1 && (
+                        <TouchableOpacity onPress={() => removeIngredient(ing.id)} style={s.deleteBtn}>
+                          <MaterialIcons name="close" size={16} color={C.outline} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </ScaleDecorator>
+                );
+              }}
+            />
             <TouchableOpacity style={s.addRowBtn} onPress={addIngredient}>
               <MaterialIcons name="add" size={18} color={C.primary} />
               <Text style={s.addRowText}>Add Ingredient</Text>
@@ -363,29 +492,90 @@ export default function AddRecipe() {
           {/* Instructions */}
           <View style={s.section}>
             <Text style={s.sectionTitle}>Instructions</Text>
-            {steps.map((step, index) => (
-              <View key={step.id} style={s.stepCard}>
-                <View style={s.stepRow}>
-                  <View style={s.stepBadge}>
-                    <Text style={s.stepBadgeText}>{index + 1}</Text>
-                  </View>
-                  <TextInput
-                    style={s.stepInput}
-                    value={step.text}
-                    onChangeText={(t) => updateStep(step.id, t)}
-                    placeholder="Describe this step…"
-                    placeholderTextColor={C.outline}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  {steps.length > 1 && (
-                    <TouchableOpacity onPress={() => removeStep(step.id)} style={s.deleteBtn}>
-                      <MaterialIcons name="close" size={16} color={C.outline} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            ))}
+            <DraggableFlatList
+              data={steps}
+              keyExtractor={(step) => step.id}
+              onDragEnd={({ data }) => setSteps(data)}
+              scrollEnabled={false}
+              renderItem={({ item: step, drag, isActive, getIndex }: RenderItemParams<Step>) => {
+                const index = getIndex() ?? 0;
+                const pickerOpen = openIngPicker === step.id;
+                const filledIngredients = ingredients.filter((i) => i.text.trim());
+                const selectedCount = step.ingredientIds.filter((id) =>
+                  filledIngredients.some((i) => i.id === id)
+                ).length;
+                return (
+                  <ScaleDecorator activeScale={0.98}>
+                    <View style={[s.stepCard, isActive && { opacity: 0.85 }]}>
+                      <View style={s.stepRow}>
+                        <View style={s.stepBadge}>
+                          <Text style={s.stepBadgeText}>{index + 1}</Text>
+                        </View>
+                        <TextInput
+                          style={s.stepInput}
+                          value={step.text}
+                          onChangeText={(t) => updateStep(step.id, t)}
+                          placeholder="Describe this step…"
+                          placeholderTextColor={C.outline}
+                          multiline
+                          textAlignVertical="top"
+                        />
+                        <TouchableOpacity onLongPress={drag} delayLongPress={100} hitSlop={6} style={s.dragHandle}>
+                          <MaterialIcons name="drag-handle" size={20} color={C.outlineVariant} />
+                        </TouchableOpacity>
+                        {steps.length > 1 && (
+                          <TouchableOpacity onPress={() => removeStep(step.id)} style={s.deleteBtn}>
+                            <MaterialIcons name="close" size={16} color={C.outline} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {/* Ingredient linker */}
+                      {filledIngredients.length > 0 && (
+                        <View style={s.stepIngSection}>
+                          <TouchableOpacity
+                            style={s.stepIngToggle}
+                            onPress={() => setOpenIngPicker(pickerOpen ? null : step.id)}
+                            activeOpacity={0.7}
+                          >
+                            <MaterialIcons name="link" size={15} color={C.primary} />
+                            <Text style={s.stepIngToggleText}>
+                              {selectedCount > 0 ? `${selectedCount} ingredient${selectedCount > 1 ? "s" : ""} linked` : "Link ingredients"}
+                            </Text>
+                            <MaterialIcons name={pickerOpen ? "expand-less" : "expand-more"} size={16} color={C.primary} />
+                          </TouchableOpacity>
+
+                          {pickerOpen && (
+                            <View style={s.stepIngList}>
+                              {filledIngredients.map((ing) => {
+                                const checked = step.ingredientIds.includes(ing.id);
+                                return (
+                                  <TouchableOpacity
+                                    key={ing.id}
+                                    style={s.stepIngItem}
+                                    onPress={() => toggleStepIngredient(step.id, ing.id)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <MaterialIcons
+                                      name={checked ? "check-box" : "check-box-outline-blank"}
+                                      size={18}
+                                      color={checked ? C.primary : C.outline}
+                                    />
+                                    <Text style={[s.stepIngItemText, checked && s.stepIngItemChecked]} numberOfLines={1}>
+                                      {ing.text.trim()}
+                                    </Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  </ScaleDecorator>
+                );
+              }}
+            />
             <TouchableOpacity style={s.addRowBtn} onPress={addStep}>
               <MaterialIcons name="playlist-add" size={20} color={C.primary} />
               <Text style={s.addRowText}>Add Step</Text>
@@ -425,9 +615,15 @@ const s = StyleSheet.create({
     gap: 8,
   },
   iconBtn: { padding: 8 },
-  topBarTitle: {
-    flex: 1, fontSize: 18, fontWeight: "700", color: C.onSurface,
-    letterSpacing: -0.3,
+  topBarLabel: {
+    flex: 1, fontSize: 16, fontWeight: "600", color: C.onSurface,
+    textAlign: "center", letterSpacing: -0.2,
+  },
+  titleInput: {
+    fontSize: 22, fontWeight: "700", color: C.onSurface,
+    paddingVertical: 10, paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.outlineVariant,
+    marginBottom: 12, letterSpacing: -0.3,
   },
   saveBtn: {
     backgroundColor: C.primary, paddingHorizontal: 18, paddingVertical: 8,
@@ -495,9 +691,21 @@ const s = StyleSheet.create({
     backgroundColor: C.surfaceContainerLow, borderRadius: 14,
     padding: 12, marginBottom: 8,
   },
-  metaItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  metaItem: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4 },
   metaDivider: { width: 1, height: 28, backgroundColor: C.outlineVariant },
-  metaInput: { flex: 1, fontSize: 13, fontWeight: "500", color: C.onSurface },
+  metaPickerText: { flex: 1, fontSize: 13, fontWeight: "500", color: C.onSurface },
+  metaPickerPlaceholder: { color: C.outline },
+
+  pickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 },
+  pickerChip: {
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999,
+    borderWidth: 1, borderColor: C.outlineVariant, backgroundColor: C.surfaceContainerLow,
+  },
+  pickerChipActive: { backgroundColor: C.primary, borderColor: C.primary },
+  pickerChipText: { fontSize: 14, color: C.onSurface, fontWeight: "500" },
+  pickerChipTextActive: { color: "#fff", fontWeight: "700" },
+  pickerClear: { alignSelf: "center", paddingVertical: 8 },
+  pickerClearText: { fontSize: 13, color: C.outline },
 
   section: { marginTop: 24 },
   sectionTitle: { fontSize: 20, fontWeight: "700", color: C.onSurface, marginBottom: 12 },
@@ -540,6 +748,16 @@ const s = StyleSheet.create({
   },
   stepBadgeText: { color: C.onPrimary, fontWeight: "700", fontSize: 12 },
   stepInput: { flex: 1, fontSize: 14, color: C.onSurface, lineHeight: 22, minHeight: 28 },
+
+  dragHandle: { paddingHorizontal: 4, paddingVertical: 2 },
+
+  stepIngSection: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.outlineVariant, paddingTop: 8 },
+  stepIngToggle: { flexDirection: "row", alignItems: "center", gap: 5 },
+  stepIngToggleText: { flex: 1, fontSize: 12, color: C.primary, fontWeight: "600" },
+  stepIngList: { marginTop: 8, gap: 2 },
+  stepIngItem: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 5 },
+  stepIngItemText: { flex: 1, fontSize: 13, color: C.onSurfaceVariant },
+  stepIngItemChecked: { color: C.primary, fontWeight: "600" },
 
   notesCard: {
     backgroundColor: C.tertiaryFixed, borderRadius: 14,

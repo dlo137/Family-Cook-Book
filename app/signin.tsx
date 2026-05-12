@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase";
-import { createProfile } from "@/services/ProfileService";
 import useAppleSignIn from "@/hooks/useAppleSignIn";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { useRouter } from "expo-router";
@@ -49,7 +48,18 @@ export default function SignIn() {
     const success = await signInWithApple();
     if (success) {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) await createProfile(user.id, user.email ?? "");
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .single();
+        if (!profile) {
+          await supabase.auth.signOut();
+          setError("No account found. Please sign up first.");
+          return;
+        }
+      }
       router.replace("/(home)/home");
     }
   };

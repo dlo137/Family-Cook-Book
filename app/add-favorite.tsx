@@ -90,7 +90,7 @@ export default function AddFavorite() {
     load();
   }, [user?.id]);
 
-  const allRecipes = [...STATIC_RECIPES, ...dbRecipes];
+  const allRecipes = [...dbRecipes, ...STATIC_RECIPES];
   const filters = ["All", ...Array.from(new Set(allRecipes.map((r) => r.author)))];
 
   const filtered = allRecipes.filter((r) => {

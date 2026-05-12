@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import {
@@ -50,6 +51,8 @@ const HARDCODED_RECIPES: Record<string, FamilyRecipeItem[]> = {
   grandma: [{ id: "static-2", name: "Grandma's Sunday Roast", source: require("../../assets/beefstew.jpg") }],
 };
 
+const FAMILY_SLOTS_KEY = "home_family_slots";
+
 const FAMILY: HomeMember[] = [
   {
     id: "mom",
@@ -98,6 +101,8 @@ export default function Home() {
   const [newMemberRole, setNewMemberRole] = useState("");
   const [family, setFamily] = useState<HomeMember[]>(FAMILY);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
+  const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [planId, setPlanId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const psNote = useMemo(() => PS_NOTES[Math.floor(Math.random() * PS_NOTES.length)], []);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -108,19 +113,12 @@ export default function Home() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("family_role")
+      .select("family_role, display_name")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {
-        const role = data?.family_role ?? null;
-        setFamilyRole(role);
-        if (role) {
-          setFamily((prev) => {
-            const exists = prev.some((m) => m.name.toLowerCase() === role.toLowerCase());
-            if (exists) return prev;
-            return [...prev, { id: role.toLowerCase(), name: role, avatar: "" }];
-          });
-        }
+        setFamilyRole(data?.family_role ?? null);
+        setUserDisplayName(data?.display_name ?? null);
       });
   }, [user?.id]);
 
@@ -133,53 +131,79 @@ export default function Home() {
         .eq("user_id", user.id)
         .limit(1)
         .then(({ data: memberships }) => {
-          const planId = memberships?.[0]?.plan_id;
-          if (!planId) return;
-          supabase
-            .from("recipes")
-            .select("id, title, content")
-            .eq("plan_id", planId)
-            .order("created_at", { ascending: false })
-            .then(({ data }) => setDbRecipes(data ?? []));
+          const pid = memberships?.[0]?.plan_id;
+          if (!pid) {
+            AsyncStorage.getItem(FAMILY_SLOTS_KEY).then((stored) => {
+              if (stored) {
+                try { setFamily(JSON.parse(stored)); } catch {}
+              }
+            });
+            return;
+          }
+          setPlanId(pid);
+          Promise.all([
+            supabase.from("family_plans").select("member_slots").eq("id", pid).single(),
+            supabase.from("recipes").select("id, title, content, created_by_user_id").eq("plan_id", pid).order("created_at", { ascending: false }),
+          ]).then(([planResult, recipesResult]) => {
+            if (planResult.data) setFamily((planResult.data.member_slots as HomeMember[]) ?? []);
+            setDbRecipes(recipesResult.data ?? []);
+          });
         });
     }, [user?.id])
   );
 
-  const sortedFamily = editMode
-    ? family
-    : [...family].sort((a, b) => {
-        const myRole = familyRole?.toLowerCase() ?? '';
-        if (a.name.toLowerCase() === myRole) return -1;
-        if (b.name.toLowerCase() === myRole) return 1;
-        return 0;
-      });
+  const selfCard: HomeMember | null = user
+    ? {
+        id: user.id,
+        name: familyRole ?? userDisplayName ?? "Me",
+        avatar: user.user_metadata?.avatar_url ?? "",
+      }
+    : null;
+
+  // Always show the current user's own card first, then the rest (excluding any duplicate with user.id)
+  const familyWithSelf = selfCard
+    ? [selfCard, ...family.filter((m) => m.id !== user!.id)]
+    : family;
+
+  const sortedFamily = familyWithSelf;
+
+  function persistFamily(slots: HomeMember[]) {
+    if (planId) {
+      supabase.from("family_plans").update({ member_slots: slots }).eq("id", planId).then();
+    } else {
+      AsyncStorage.setItem(FAMILY_SLOTS_KEY, JSON.stringify(slots));
+    }
+  }
 
   function moveUp(index: number) {
     if (index === 0) return;
-    setFamily((prev) => {
-      const next = [...prev];
-      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-      return next;
-    });
+    const next = [...family];
+    [next[index - 1], next[index]] = [next[index], next[index - 1]];
+    setFamily(next);
+    persistFamily(next);
   }
 
   function moveDown(index: number) {
-    setFamily((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      [next[index], next[index + 1]] = [next[index + 1], next[index]];
-      return next;
-    });
+    if (index >= family.length - 1) return;
+    const next = [...family];
+    [next[index], next[index + 1]] = [next[index + 1], next[index]];
+    setFamily(next);
+    persistFamily(next);
   }
 
   function deleteMember(id: string) {
-    setFamily((prev) => prev.filter((m) => m.id !== id));
+    if (id === user?.id) return;
+    const next = family.filter((m) => m.id !== id);
+    setFamily(next);
+    persistFamily(next);
   }
 
   function commitRename(id: string) {
     const trimmed = renameText.trim();
     if (trimmed) {
-      setFamily((prev) => prev.map((m) => m.id === id ? { ...m, name: trimmed } : m));
+      const next = family.map((m) => m.id === id ? { ...m, name: trimmed } : m);
+      setFamily(next);
+      persistFamily(next);
     }
     setRenamingId(null);
     setRenameText("");
@@ -258,16 +282,22 @@ export default function Home() {
             data={sortedFamily}
             scrollEnabled={false}
             keyExtractor={(item) => item.id}
-            onDragEnd={({ data }) => setFamily(data)}
+            onDragEnd={({ data }) => { setFamily(data); persistFamily(data); }}
             renderItem={({ item: member, drag, isActive, getIndex }) => {
               const index = getIndex() ?? 0;
               const isOpen = !editMode && expanded === member.id;
               const isRenaming = renamingId === member.id;
               const staticRecipes = HARDCODED_RECIPES[member.id] ?? [];
+              const isSelf = member.id === user?.id;
               const memberRecipes: FamilyRecipeItem[] = [
                 ...staticRecipes,
                 ...dbRecipes
-                  .filter((r: any) => (r.content as any)?.author?.toLowerCase() === member.name.toLowerCase())
+                  .filter((r: any) =>
+                    isSelf
+                      ? r.created_by_user_id === user?.id ||
+                        (r.content as any)?.author?.toLowerCase() === member.name.toLowerCase()
+                      : (r.content as any)?.author?.toLowerCase() === member.name.toLowerCase()
+                  )
                   .map((r: any) => ({
                     id: r.id,
                     name: r.title,
@@ -313,9 +343,11 @@ export default function Home() {
                           <TouchableOpacity onPress={() => { setRenamingId(member.id); setRenameText(member.name); }} hitSlop={6} style={{ paddingHorizontal: 4 }}>
                             <MaterialIcons name="edit" size={18} color={C.outline} />
                           </TouchableOpacity>
-                          <TouchableOpacity onPress={() => deleteMember(member.id)} hitSlop={6} style={{ paddingHorizontal: 4 }}>
-                            <MaterialIcons name="delete-outline" size={20} color="#e74c3c" />
-                          </TouchableOpacity>
+                          {member.id !== user?.id && (
+                            <TouchableOpacity onPress={() => deleteMember(member.id)} hitSlop={6} style={{ paddingHorizontal: 4 }}>
+                              <MaterialIcons name="delete-outline" size={20} color="#e74c3c" />
+                            </TouchableOpacity>
+                          )}
                           <TouchableOpacity onLongPress={drag} delayLongPress={50} hitSlop={6} style={{ paddingHorizontal: 4 }}>
                             <MaterialIcons name="drag-handle" size={22} color={C.outlineVariant} />
                           </TouchableOpacity>
@@ -473,11 +505,10 @@ export default function Home() {
                   style={[s.saveBtn, !newMemberName.trim() && s.saveBtnDisabled]}
                   onPress={() => {
                     if (!newMemberName.trim()) return;
-                    setFamily((prev) => [...prev, {
-                      id: Date.now().toString(),
-                      name: newMemberName.trim(),
-                      avatar: newMemberAvatar,
-                    }]);
+                    const newMember = { id: Date.now().toString(), name: newMemberName.trim(), avatar: newMemberAvatar };
+                    const next = [...family, newMember];
+                    setFamily(next);
+                    persistFamily(next);
                     setNewMemberName("");
                     setNewMemberAvatar("");
                     setNewMemberRole("");

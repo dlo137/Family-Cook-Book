@@ -26,10 +26,6 @@ export default function useAppleSignIn() {
         throw new Error("Apple Sign In did not return an identity token.");
       }
 
-      // DEBUG: decode token payload to verify audience
-      const payload = JSON.parse(atob(credential.identityToken.split(".")[1]));
-      console.log("[AppleSignIn] token aud:", payload.aud);
-
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
         token: credential.identityToken,

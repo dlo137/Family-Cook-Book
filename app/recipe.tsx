@@ -57,7 +57,7 @@ function mapRow(row: any): RecipeData {
     servings: c.servings ?? "",
     tip: c.notes ?? "",
     ingredients: (c.ingredients ?? []).map((text: string, i: number) => ({ id: String(i), text })),
-    steps: c.steps ?? [],
+    steps: (c.steps ?? []).map((s: any) => typeof s === "string" ? s : s.instruction ?? ""),
   };
 }
 
@@ -205,7 +205,7 @@ export default function Recipe() {
         <View style={s.actionRow}>
           <View style={s.actionLeft}>
             {canEdit && (
-              <TouchableOpacity style={s.btnSecondary} onPress={() => router.push("/add-recipe")}>
+              <TouchableOpacity style={s.btnSecondary} onPress={() => router.push({ pathname: "/add-recipe", params: { id } })}>
                 <MaterialIcons name="edit" size={18} color={C.onSecondaryContainer} />
                 <Text style={s.btnSecondaryText}>Edit</Text>
               </TouchableOpacity>

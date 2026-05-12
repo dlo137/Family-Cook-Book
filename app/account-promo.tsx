@@ -1,9 +1,12 @@
 import { supabase } from '@/lib/supabase';
+import useAppleSignIn from '@/hooks/useAppleSignIn';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import {
+  Animated,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -37,6 +40,60 @@ export default function AccountPromo() {
   const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roleRequired, setRoleRequired] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+
+  function triggerRolePulse() {
+    setRoleRequired(true);
+    pulseAnim.setValue(1);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.25, duration: 400, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      ]),
+      { iterations: 4 }
+    ).start();
+  }
+
+  const {
+    signInWithApple,
+    isAvailable: appleAvailable,
+    loading: appleLoading,
+    error: appleError,
+  } = useAppleSignIn();
+
+  const displayError = error ?? appleError;
+
+  const handleAppleSignUp = async () => {
+    if (!familyRole) {
+      triggerRolePulse();
+      return;
+    }
+    setError(null);
+    const success = await signInWithApple();
+    if (!success) return;
+    const { data: { user: appleUser } } = await supabase.auth.getUser();
+    if (appleUser) {
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', appleUser.id)
+        .single();
+      if (!existing) {
+        await supabase.from('profiles').upsert({
+          id: appleUser.id,
+          email: appleUser.email ?? '',
+          display_name: appleUser.user_metadata?.full_name ?? appleUser.email?.split('@')[0] ?? 'User',
+          has_seen_paywall: true,
+          is_pro_version: true,
+          ...(familyRole ? { family_role: familyRole } : {}),
+        }, { onConflict: 'id' });
+      } else if (familyRole) {
+        await supabase.from('profiles').update({ family_role: familyRole }).eq('id', appleUser.id);
+      }
+    }
+    router.replace('/(home)/home');
+  };
 
   const handleSignUp = async () => {
     if (!name.trim()) { setError('Please enter your name.'); return; }
@@ -47,15 +104,14 @@ export default function AccountPromo() {
     setError(null);
     setLoading(true);
     try {
-      // If user is anonymous, update in-place
+      // If user is anonymous, update in-place via Edge Function (no email sent)
       if (user && user.email && user.email.startsWith('anon_')) {
-        // Convert anonymous user to real account
-        const { data, error: updateError } = await supabase.auth.updateUser({
-          email: email.trim(),
-          password,
-          data: { display_name: name.trim() },
+        const { error: fnError } = await supabase.functions.invoke('convert-anonymous-user', {
+          body: { email: email.trim(), password, display_name: name.trim() },
         });
-        if (updateError) throw updateError;
+        if (fnError) throw fnError;
+        // Refresh session so user_metadata reflects the new display_name
+        await supabase.auth.refreshSession();
         // Update profile row with new info
         const { error: profileError } = await supabase.from('profiles').update({
           email: email.trim(),
@@ -160,13 +216,21 @@ export default function AccountPromo() {
             </TouchableOpacity>
           </View>
 
-          <Text style={s.roleLabel}>Your role in the family</Text>
-          <View style={s.roleChips}>
+          <View style={s.roleLabelRow}>
+            <Text style={s.roleLabel}>Your role in the family</Text>
+            {roleRequired && (
+              <Animated.View style={[s.roleRequiredBadge, { opacity: pulseAnim }]}>
+                <MaterialIcons name="error" size={11} color="#fff" />
+                <Text style={s.roleRequiredText}>Required</Text>
+              </Animated.View>
+            )}
+          </View>
+          <View style={[s.roleChips, roleRequired && s.roleChipsRequired]}>
             {['Mom', 'Dad', 'Grandma', 'Grandpa', 'Sister', 'Brother', 'Aunt', 'Uncle', 'Other'].map((role) => (
               <TouchableOpacity
                 key={role}
                 style={[s.roleChip, familyRole === role && s.roleChipActive]}
-                onPress={() => setFamilyRole(familyRole === role ? null : role)}
+                onPress={() => { setFamilyRole(familyRole === role ? null : role); setRoleRequired(false); }}
                 activeOpacity={0.7}
               >
                 <Text style={[s.roleChipText, familyRole === role && s.roleChipTextActive]}>{role}</Text>
@@ -174,13 +238,13 @@ export default function AccountPromo() {
             ))}
           </View>
 
-          {error && <Text style={s.error}>{error}</Text>}
+          {displayError && <Text style={s.error}>{displayError}</Text>}
 
           <TouchableOpacity
-            style={[s.btn, loading && s.btnDisabled]}
+            style={[s.btn, (loading || appleLoading) && s.btnDisabled]}
             onPress={handleSignUp}
             activeOpacity={0.85}
-            disabled={loading}
+            disabled={loading || appleLoading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -189,14 +253,23 @@ export default function AccountPromo() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.6}
-            style={s.skip}
-            disabled={loading}
-          >
-            <Text style={s.skipText}>Maybe Later</Text>
-          </TouchableOpacity>
+          {appleAvailable && (
+            <>
+              <View style={s.divider}>
+                <View style={s.dividerLine} />
+                <Text style={s.dividerText}>or</Text>
+                <View style={s.dividerLine} />
+              </View>
+
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={999}
+                style={s.appleBtn}
+                onPress={handleAppleSignUp}
+              />
+            </>
+          )}
         </View>
       </View>
     </KeyboardAvoidingView>
@@ -260,10 +333,20 @@ const s = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   btnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
-  skip: { alignSelf: 'center' },
-  skipText: { fontSize: 13, color: C.outline, fontWeight: '500' },
-  roleLabel: { fontSize: 13, color: C.onSurfaceVariant, fontWeight: '600', marginBottom: 10, marginTop: 4 },
+  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 0, marginBottom: 14 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
+  dividerText: { marginHorizontal: 12, color: C.outline, fontSize: 13 },
+  appleBtn: { width: '100%', height: 52 },
+  roleLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 10 },
+  roleLabel: { fontSize: 13, color: C.onSurfaceVariant, fontWeight: '600' },
+  roleRequiredBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#e74c3c', borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  roleRequiredText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
   roleChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  roleChipsRequired: { borderWidth: 1.5, borderColor: '#e74c3c', borderRadius: 12, padding: 8 },
   roleChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     borderWidth: 1, borderColor: C.border, backgroundColor: '#fff',

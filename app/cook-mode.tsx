@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -12,7 +13,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Audio } from "expo-av";
+import { createAudioPlayer } from "expo-audio";
+import { supabase } from "@/lib/supabase";
 
 const C = {
   primary: "#556B2F",
@@ -272,15 +274,10 @@ const RECIPES: Record<string, {
 const TIMER_PRESETS = [1, 5, 10, 15, 20, 25, 30, 45, 60];
 
 // Drop a short beep MP3 at assets/sounds/timer-beep.mp3
-async function playTimerSound() {
+function playTimerSound() {
   try {
-    const { sound } = await Audio.Sound.createAsync(
-      require("../assets/sounds/timer-beep.mp3")
-    );
-    await sound.playAsync();
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.isLoaded && status.didJustFinish) sound.unloadAsync();
-    });
+    const player = createAudioPlayer(require("../assets/sounds/timer-beep.mp3"));
+    player.play();
   } catch (e) {
     console.warn("Timer sound unavailable:", e);
   }
@@ -292,12 +289,43 @@ export default function CookMode() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  // Normalise cook-page IDs (s1→1, s2→2 …) and fall back to "1"
+  const isDbRecipe = !!(id && !/^s?\d+$/.test(id));
   const normalised = id?.replace(/^s/, "") ?? "1";
-  const RECIPE = RECIPES[normalised] ?? RECIPES["1"];
+  const [dbRecipe, setDbRecipe] = useState<typeof RECIPES[string] | null>(null);
+  const [recipeLoading, setRecipeLoading] = useState(isDbRecipe);
+
+  useEffect(() => {
+    if (!isDbRecipe || !id) return;
+    supabase
+      .from("recipes")
+      .select("title, content")
+      .eq("id", id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          const c = data.content as any;
+          setDbRecipe({
+            title: data.title,
+            ingredients: (c.ingredients ?? []).map((text: string, i: number) => ({
+              id: `ing-${i}`,
+              text,
+            })),
+            steps: (c.steps ?? []).map((step: any) => ({
+              instruction: typeof step === "string" ? step : step.instruction,
+              ingredients: typeof step === "string" ? [] : (step.ingredientIds ?? []),
+              tip: null,
+            })),
+          });
+        }
+        setRecipeLoading(false);
+      });
+  }, [id]);
+
+  const RECIPE = dbRecipe ?? RECIPES[normalised] ?? RECIPES["1"];
   const [phase, setPhase] = useState<Phase>("prep");
   const [stepIndex, setStepIndex] = useState(0);
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
+  const [checkedStepIngredients, setCheckedStepIngredients] = useState<Record<string, boolean>>({});
 
   const [showTimerModal, setShowTimerModal] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -361,6 +389,7 @@ export default function CookMode() {
 
   function goNext() {
     clearTimerForStep();
+    setCheckedStepIngredients({});
     if (stepIndex < totalSteps - 1) {
       setStepIndex((i) => i + 1);
     } else {
@@ -370,11 +399,20 @@ export default function CookMode() {
 
   function goBack() {
     clearTimerForStep();
+    setCheckedStepIngredients({});
     if (stepIndex > 0) {
       setStepIndex((i) => i - 1);
     } else {
       setPhase("prep");
     }
+  }
+
+  if (recipeLoading) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
   }
 
   // ── PREP PHASE ────────────────────────────────────────────────
@@ -500,15 +538,15 @@ export default function CookMode() {
               <TouchableOpacity
                 key={ing.id}
                 style={s.stepIngRow}
-                onPress={() => toggleIngredient(ing.id)}
+                onPress={() => setCheckedStepIngredients((prev) => ({ ...prev, [ing.id]: !prev[ing.id] }))}
                 activeOpacity={0.7}
               >
                 <MaterialIcons
-                  name={checkedIngredients[ing.id] ? "check-box" : "check-box-outline-blank"}
+                  name={checkedStepIngredients[ing.id] ? "check-box" : "check-box-outline-blank"}
                   size={20}
-                  color={checkedIngredients[ing.id] ? C.primary : C.outlineVariant}
+                  color={checkedStepIngredients[ing.id] ? C.primary : C.outlineVariant}
                 />
-                <Text style={[s.stepIngText, checkedIngredients[ing.id] && s.ingredientDone]}>
+                <Text style={[s.stepIngText, checkedStepIngredients[ing.id] && s.ingredientDone]}>
                   {ing.text}
                 </Text>
               </TouchableOpacity>
