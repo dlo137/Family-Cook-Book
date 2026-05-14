@@ -102,6 +102,8 @@ export default function Home() {
   const [family, setFamily] = useState<HomeMember[]>(FAMILY);
   const [familyRole, setFamilyRole] = useState<string | null>(null);
   const [userDisplayName, setUserDisplayName] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [planId, setPlanId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const psNote = useMemo(() => PS_NOTES[Math.floor(Math.random() * PS_NOTES.length)], []);
@@ -109,18 +111,23 @@ export default function Home() {
   const [renameText, setRenameText] = useState("");
   const [dbRecipes, setDbRecipes] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("family_role, display_name")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
-        setFamilyRole(data?.family_role ?? null);
-        setUserDisplayName(data?.display_name ?? null);
-      });
-  }, [user?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      supabase
+        .from("profiles")
+        .select("family_role, display_name, email, avatar_url")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          setFamilyRole(data?.family_role ?? null);
+          const name = data?.display_name;
+          setUserDisplayName(name && !name.startsWith("anon_") ? name : null);
+          setUserEmail(data?.email ?? null);
+          setUserAvatar(data?.avatar_url ?? user.user_metadata?.avatar_url ?? null);
+        });
+    }, [user?.id])
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -155,8 +162,8 @@ export default function Home() {
   const selfCard: HomeMember | null = user
     ? {
         id: user.id,
-        name: familyRole ?? userDisplayName ?? "Me",
-        avatar: user.user_metadata?.avatar_url ?? "",
+        name: userDisplayName ?? familyRole ?? "Me",
+        avatar: userAvatar ?? user.user_metadata?.avatar_url ?? "",
       }
     : null;
 
@@ -282,7 +289,11 @@ export default function Home() {
             data={sortedFamily}
             scrollEnabled={false}
             keyExtractor={(item) => item.id}
-            onDragEnd={({ data }) => { setFamily(data); persistFamily(data); }}
+            onDragEnd={({ data }) => {
+              const withoutSelf = data.filter((m) => m.id !== user?.id);
+              setFamily(withoutSelf);
+              persistFamily(withoutSelf);
+            }}
             renderItem={({ item: member, drag, isActive, getIndex }) => {
               const index = getIndex() ?? 0;
               const isOpen = !editMode && expanded === member.id;

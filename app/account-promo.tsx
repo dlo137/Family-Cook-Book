@@ -70,8 +70,12 @@ export default function AccountPromo() {
       return;
     }
     setError(null);
+    // Capture the anonymous user ID before Apple sign-in replaces the session
+    const anonUserId = user?.email?.startsWith('anon_') ? user.id : null;
+
     const success = await signInWithApple();
     if (!success) return;
+
     const { data: { user: appleUser } } = await supabase.auth.getUser();
     if (appleUser) {
       const { data: existing } = await supabase
@@ -91,6 +95,11 @@ export default function AccountPromo() {
       } else if (familyRole) {
         await supabase.from('profiles').update({ family_role: familyRole }).eq('id', appleUser.id);
       }
+
+      // Delete the orphaned anonymous account so only one account exists
+      if (anonUserId && anonUserId !== appleUser.id) {
+        await supabase.functions.invoke('delete-anonymous-user', { body: { userId: anonUserId } });
+      }
     }
     router.replace('/(home)/home');
   };
@@ -104,47 +113,28 @@ export default function AccountPromo() {
     setError(null);
     setLoading(true);
     try {
-      // If user is anonymous, update in-place via Edge Function (no email sent)
       if (user && user.email && user.email.startsWith('anon_')) {
         const { error: fnError } = await supabase.functions.invoke('convert-anonymous-user', {
-          body: { email: email.trim(), password, display_name: name.trim() },
+          body: { email: email.trim(), password, display_name: name.trim(), family_role: familyRole },
         });
         if (fnError) throw fnError;
-        // Refresh session so user_metadata reflects the new display_name
         await supabase.auth.refreshSession();
-        // Update profile row with new info
-        const { error: profileError } = await supabase.from('profiles').update({
-          email: email.trim(),
-          display_name: name.trim(),
-          has_seen_paywall: true,
-          is_pro_version: true,
-          ...(familyRole ? { family_role: familyRole } : {}),
-        }).eq('id', user.id);
-        if (profileError) console.warn('[AccountPromo] profile update error:', profileError);
-        router.replace('/(home)/home');
-        return;
       }
-      // Otherwise, sign up as new user (fallback)
-      const { data, error: signUpError } = await supabase.auth.signUp({
+
+      // Get a fresh user after auth, then upsert profile directly
+      const { data: { user: freshUser }, error: userError } = await supabase.auth.getUser();
+      if (userError || !freshUser) throw new Error('Could not verify session. Please try again.');
+
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: freshUser.id,
         email: email.trim(),
-        password,
-        options: { data: { display_name: name.trim() } },
-      });
-      if (signUpError) throw signUpError;
-      if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').upsert(
-          {
-            id: data.user.id,
-            email: email.trim(),
-            display_name: name.trim(),
-            has_seen_paywall: true,
-            is_pro_version: true,
-            ...(familyRole ? { family_role: familyRole } : {}),
-          },
-          { onConflict: 'id' }
-        );
-        if (profileError) console.warn('[AccountPromo] profile upsert error:', profileError);
-      }
+        display_name: name.trim(),
+        family_role: familyRole ?? null,
+        avatar_url: freshUser.user_metadata?.avatar_url ?? null,
+      }, { onConflict: 'id' });
+
+      if (profileError) throw profileError;
+
       router.replace('/(home)/home');
     } catch (e: any) {
       console.error('[AccountPromo] signup failed:', JSON.stringify(e, null, 2));

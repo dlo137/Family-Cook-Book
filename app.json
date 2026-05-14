@@ -22,7 +22,7 @@
         "NSPhotoLibraryUsageDescription": "Grandma's Cookbook accesses your photo library so you can add photos to your recipes and profile.",
         "NSPhotoLibraryAddUsageDescription": "Grandma's Cookbook saves recipe photos to your photo library."
       },
-      "buildNumber": "19"
+      "buildNumber": "20"
     },
     "android": {
       "adaptiveIcon": {
