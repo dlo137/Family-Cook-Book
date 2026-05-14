@@ -117,8 +117,21 @@ export default function AccountPromo() {
         const { error: fnError } = await supabase.functions.invoke('convert-anonymous-user', {
           body: { email: email.trim(), password, display_name: name.trim(), family_role: familyRole },
         });
-        if (fnError) throw fnError;
-        await supabase.auth.refreshSession();
+        if (fnError) {
+          let msg = fnError.message;
+          try {
+            const body = await (fnError as any).context?.json?.();
+            if (body?.error) msg = body.error;
+          } catch {}
+          throw new Error(msg);
+        }
+        // Sign in fresh after conversion — refreshSession() is unreliable
+        // when Supabase invalidates the anonymous session on credential update
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (signInError) throw new Error(signInError.message);
       }
 
       // Get a fresh user after auth, then upsert profile directly
@@ -130,14 +143,13 @@ export default function AccountPromo() {
         email: email.trim(),
         display_name: name.trim(),
         family_role: familyRole ?? null,
-        avatar_url: freshUser.user_metadata?.avatar_url ?? null,
       }, { onConflict: 'id' });
 
-      if (profileError) throw profileError;
+      if (profileError) throw new Error(profileError.message);
 
       router.replace('/(home)/home');
     } catch (e: any) {
-      console.error('[AccountPromo] signup failed:', JSON.stringify(e, null, 2));
+      console.error('[AccountPromo] signup failed:', e?.message ?? String(e));
       setError(e.message ?? 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
