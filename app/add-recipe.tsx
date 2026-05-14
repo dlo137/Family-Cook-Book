@@ -383,6 +383,7 @@ export default function AddRecipe() {
             onChangeText={setTitle}
             placeholder="Recipe Name"
             placeholderTextColor={C.outline}
+            selectionColor={C.primary}
           />
 
           {/* Meta Row — dropdown pickers */}
@@ -624,6 +625,7 @@ const s = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 4,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.outlineVariant,
     marginBottom: 12, letterSpacing: -0.3,
+    backgroundColor: C.surface,
   },
   saveBtn: {
     backgroundColor: C.primary, paddingHorizontal: 18, paddingVertical: 8,

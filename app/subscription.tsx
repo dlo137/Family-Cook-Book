@@ -59,6 +59,7 @@ export default function Subscription() {
   const [purchasing, setPurchasing] = useState(false);
   const [discountVisible, setDiscountVisible] = useState(false);
   const [isFamilyMember, setIsFamilyMember] = useState(false);
+  const [activePlanKey, setActivePlanKey] = useState<PlanKey | null>(null);
 
   const isRestoringRef = useRef(false);
   const marqueeX = useRef(new Animated.Value(0)).current;
@@ -80,6 +81,25 @@ export default function Subscription() {
         .maybeSingle()
         .then(({ data }) => {
           if (data && data.role !== 'owner') setIsFamilyMember(true);
+        });
+    });
+  }, []);
+
+  // Fetch user's active subscription plan
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from('profiles')
+        .select('subscription_plan, is_pro_version')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (!data?.is_pro_version || !data?.subscription_plan) return;
+          const matched = PLANS.find(
+            (p) => p.planKey === data.subscription_plan || p.id === data.subscription_plan
+          );
+          if (matched) setActivePlanKey(matched.planKey);
         });
     });
   }, []);
@@ -208,9 +228,11 @@ export default function Subscription() {
     });
   }
 
-  function showAccountModal() {
+  async function showAccountModal() {
+    const { data: { user } } = await supabase.auth.getUser();
+    const isAnonymous = !user?.email || user.email.startsWith('anon_');
     router.replace('/(home)/home');
-    router.push('/account-promo');
+    if (isAnonymous) router.push('/account-promo');
   }
 
   const ctaLabel = !iapReady || loadingProducts ? 'Loading...' : purchasing ? 'Processing...' : isFamilyMember ? 'Managed by Plan Owner' : 'Start Saving Recipes';
@@ -248,18 +270,26 @@ export default function Subscription() {
         {/* Plan cards */}
         <View style={[s.plans, { width: '100%', marginTop: 16, marginBottom: 16 }]}>
           {PLANS.map((plan) => {
-            const active = !isFamilyMember && selectedPlan === plan.planKey;
+            const isCurrentPlan = activePlanKey === plan.planKey;
+            const active = !isFamilyMember && !isCurrentPlan && selectedPlan === plan.planKey;
             const liveProduct = products.find((p: any) => (p.id ?? p.productId) === plan.id);
             const displayPrice = liveProduct?.localizedPrice ?? plan.price;
+            const cardDisabled = isFamilyMember || isCurrentPlan;
 
             return (
               <TouchableOpacity
                 key={plan.planKey}
-                style={[s.planCard, active && s.planCardActive, isFamilyMember && s.planCardDisabled]}
-                onPress={() => !isFamilyMember && setSelectedPlan(plan.planKey)}
-                activeOpacity={isFamilyMember ? 1 : 0.8}
+                style={[s.planCard, active && s.planCardActive, cardDisabled && s.planCardDisabled]}
+                onPress={() => !cardDisabled && setSelectedPlan(plan.planKey)}
+                activeOpacity={cardDisabled ? 1 : 0.8}
               >
-                {plan.badge && !isFamilyMember && (
+                {isCurrentPlan && (
+                  <View style={s.currentPlanBadge}>
+                    <MaterialIcons name="check-circle" size={10} color="#fff" />
+                    <Text style={s.currentPlanBadgeText}>Current Plan</Text>
+                  </View>
+                )}
+                {plan.badge && !isFamilyMember && !isCurrentPlan && (
                   <View style={s.badgeWrap}>
                     <Text style={s.badgeText}>{plan.badge}</Text>
                   </View>
@@ -275,12 +305,12 @@ export default function Subscription() {
                     {active && <View style={s.radioInner} />}
                   </View>
                   <View style={s.planInfo}>
-                    <Text style={[s.planLabel, active && s.planLabelActive, isFamilyMember && s.planTextDisabled]}>{plan.label}</Text>
-                    <Text style={[s.planDesc, isFamilyMember && s.planTextDisabled]}>{plan.description}</Text>
+                    <Text style={[s.planLabel, active && s.planLabelActive, cardDisabled && s.planTextDisabled]}>{plan.label}</Text>
+                    <Text style={[s.planDesc, cardDisabled && s.planTextDisabled]}>{plan.description}</Text>
                   </View>
                   <View style={s.planPricing}>
-                    <Text style={[s.planPrice, active && s.planPriceActive, isFamilyMember && s.planTextDisabled]}>{displayPrice}</Text>
-                    {!!plan.period && <Text style={[s.planPeriod, isFamilyMember && s.planTextDisabled]}>{plan.period}</Text>}
+                    <Text style={[s.planPrice, active && s.planPriceActive, cardDisabled && s.planTextDisabled]}>{displayPrice}</Text>
+                    {!!plan.period && <Text style={[s.planPeriod, cardDisabled && s.planTextDisabled]}>{plan.period}</Text>}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -463,6 +493,12 @@ const s = StyleSheet.create({
     backgroundColor: '#ABABAB', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
   },
   notOwnerBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
+  currentPlanBadge: {
+    position: 'absolute', top: -10, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#ABABAB', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
+  },
+  currentPlanBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff', letterSpacing: 0.3 },
   familyMemberNote: {
     fontSize: 12, color: C.outline, textAlign: 'center',
     lineHeight: 17, marginTop: 4, paddingHorizontal: 8,

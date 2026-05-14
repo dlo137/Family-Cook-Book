@@ -160,12 +160,12 @@ export default function Other() {
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>The Family Cookbook</Text>
-        <View style={s.avatar}>
+        <TouchableOpacity style={s.avatar} onPress={() => router.push('/(home)/profile')} activeOpacity={0.8}>
           <Image
             source={{ uri: "https://lh3.googleusercontent.com/aida-public/AB6AXuBwnsiky2TruhS7MEhrclqbeCFJanL4OM_l0QRtWgIO6F42B2DOJ55114i2cbxA_0W8tGPIbmAYU09LZPuuPsvFqoZC2NY0uZXbbO3zkQI51WNdlSpWg_kB525VJR5uvagYuVW3GVKuertEHD0D6jjB9J5h2au3lAy3qdPZ3S4KiVHuwzOmHrdzGoKO6SqdkWgWq4Rkn4aYTgLuFKgSMXThdHXPbL3wgO1P4HAtkgPsZ_OmxmarP4PfjWv7TDuBfLgVumDfCV-ImCQ" }}
             style={s.avatarImg}
           />
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Countdown overlay */}
